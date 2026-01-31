@@ -1,26 +1,63 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
+/**
+ * extension.ts
+ * 
+ * Main entry point for the VS Code extension.
+ * 
+ * This file is responsible for:
+ * - Creating the display strategy (CodeLensStrategy)
+ * - Activating the strategy when extension loads
+ * - Deactivating and cleaning up when extension unloads
+ * 
+ * The extension uses a strategy pattern, making it easy to swap
+ * display implementations later (CodeLens → floating webviews, etc.)
+ */
 import * as vscode from 'vscode';
-
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
+import { CodeLensStrategy } from './display/CodeLensStrategy';
+/**
+ * The display strategy instance.
+ * Stored at module level so it's accessible in both activate and deactivate.
+ */
+let strategy: CodeLensStrategy | undefined;
+/**
+ * Called when the extension is activated.
+ * 
+ * Activation happens when:
+ * - VS Code starts up (if extension is set to activate on startup)
+ * - User opens a file matching activation events
+ * - User runs a command from this extension
+ * 
+ * @param context - Extension context provided by VS Code
+ */
 export function activate(context: vscode.ExtensionContext) {
-
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "my-first-extension" is now active!');
-
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('my-first-extension.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from my_first_extension!');
-	});
-
-	context.subscriptions.push(disposable);
+	console.log('Function Annotations extension is now active!');
+	
+	// Create the CodeLens strategy
+	strategy = new CodeLensStrategy();
+	
+	// Activate it (registers providers, commands, etc.)
+	strategy.activate(context);
+	
+	console.log('CodeLens strategy has been activated');
 }
-
-// This method is called when your extension is deactivated
-export function deactivate() {}
+/**
+ * Called when the extension is deactivated.
+ * 
+ * Deactivation happens when:
+ * - VS Code is closing
+ * - Extension is being disabled
+ * - Extension is being uninstalled
+ * - Extension is being reloaded
+ * 
+ * Important: Clean up resources here to prevent memory leaks
+ */
+export function deactivate() {
+	console.log('Function Annotations extension is deactivating');
+	
+	// Deactivate the strategy (cleans up providers, commands, webviews, etc.)
+	if (strategy) {
+		strategy.deactivate();
+		strategy = undefined;
+	}
+	
+	console.log('Function Annotations extension has been deactivated');
+}

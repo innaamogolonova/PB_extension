@@ -1,7 +1,7 @@
 {
-  "name": "my-first-extension",
-  "displayName": "my_first_extension",
-  "description": "",
+  "name": "function-annotations",
+  "displayName": "Function Annotations",
+  "description": "Mock up with CodeLens",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.108.1"
@@ -9,15 +9,27 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "my-first-extension.helloWorld",
-        "title": "Hello World"
+        "command": "functionAnnotations.showAnnotation",
+        "title": "Show Function Annotation"
       }
-    ]
+    ],
+    "configuration": {
+    "title": "Function Annotations",
+    "properties": {
+      "functionAnnotations.enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable or disable function annotations"
+      }
+    }
+  }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
