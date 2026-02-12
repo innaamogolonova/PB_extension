@@ -45,8 +45,8 @@ export interface AnnotationContent {
   /** A brief summary or explanation of the function */
   summary: string;
   
-  /** HTML content for rich visualization (charts, tables, etc.) */
-  visualization: string;
+  /** TODO later: add visualization functionality*/
+  /** visualization: string; */ 
   
   /** When this annotation was generated */
   timestamp: Date;

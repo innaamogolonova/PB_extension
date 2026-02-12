@@ -21,15 +21,20 @@
       }
     ],
     "configuration": {
-    "title": "Function Annotations",
-    "properties": {
-      "functionAnnotations.enabled": {
-        "type": "boolean",
-        "default": true,
-        "description": "Enable or disable function annotations"
+      "title": "Function Annotations",
+      "properties": {
+        "functionAnnotations.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable or disable function annotations"
+        }
+      },
+      "functionAnnotations.openaiApiKey": {
+        "type": "string",
+        "default": "",
+        "description": "OpenAI API key for generating function annotations"
       }
     }
-  }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
@@ -40,13 +45,17 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.108.1",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
-    "typescript-eslint": "^8.52.0",
+    "@types/vscode": "^1.108.1",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
     "eslint": "^9.39.2",
     "typescript": "^5.9.3",
-    "@vscode/test-cli": "^0.0.12",
-    "@vscode/test-electron": "^2.5.2"
+    "typescript-eslint": "^8.52.0"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.4",
+    "openai": "^6.21.0"
   }
 }
