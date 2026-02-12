@@ -47,7 +47,6 @@ export async function generateAnnotation(
   const content: AnnotationContent = {
     functionName: functionInfo.name,
     summary: generateMockSummary(functionInfo),
-    visualization: generateMockVisualization(functionInfo),
     timestamp: new Date(),
     isLoading: false
   };

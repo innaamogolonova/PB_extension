@@ -27,11 +27,11 @@ export async function generateAnnotation(
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     {
       role: "system",
-      content: "You are a helpful assistant that generates concise summaries and visualizations for code functions."
+      content: "You are a helpful assistant that generates concise summaries for code functions."
     },
     {
       role: "user",
-      content: `Generate a concise summary and visualization for the following function: 
+      content: `Generate a concise summary for the following function: 
       ${functionInfo.name}. Here is the full function: ${functionInfo.functionCode}. 
       What variables, information, or function walkthroughs would be most helpful to understand this function behavior quickly?`
     }

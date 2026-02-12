@@ -20,7 +20,7 @@ import * as vscode from 'vscode';
 import { IDisplayStrategy } from './IDisplayStrategy';
 import { FunctionInfo } from '../types';
 import { detectFunctions } from '../functionDetector';
-import { generateAnnotation } from '../services/mockLLMService';
+import { generateAnnotation } from '../services/basicLLMService';
 import { WebviewManager } from '../webview/WebviewManager';
 /**
  * CodeLens-based display strategy.
@@ -209,7 +209,6 @@ export class CodeLensStrategy implements IDisplayStrategy, vscode.CodeLensProvid
     this.webviewManager.show({
       functionName: functionInfo.name,
       summary: '',
-      visualization: '',
       timestamp: new Date(),
       isLoading: true
     });
@@ -229,7 +228,6 @@ export class CodeLensStrategy implements IDisplayStrategy, vscode.CodeLensProvid
       this.webviewManager.update({
         functionName: functionInfo.name,
         summary: 'Error generating annotation',
-        visualization: `<p>An error occurred: ${error}</p>`,
         timestamp: new Date(),
         isLoading: false
       });

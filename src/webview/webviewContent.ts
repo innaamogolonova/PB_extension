@@ -100,12 +100,6 @@ function getFullContent(content: AnnotationContent): string {
           <div class="summary-content">${content.summary}</div>
         </div>
         
-        <div class="visualization-section">
-          <h3 class="section-title">Analysis</h3>
-          <div class="visualization-content">
-            ${content.visualization}
-          </div>
-        </div>
       </div>
     </body>
     </html>
@@ -238,82 +232,6 @@ function getBaseStyles(): string {
       padding: 12px 16px;
       line-height: 1.6;
       border-radius: 2px;
-    }
-    
-    /* Visualization section */
-    .visualization-section {
-      margin-bottom: 16px;
-    }
-    
-    .visualization-content {
-      line-height: 1.6;
-    }
-    
-    /* Styles for mock visualization content */
-    .mock-visualization h3 {
-      font-size: 16px;
-      margin-bottom: 12px;
-      color: var(--vscode-foreground);
-    }
-    
-    .mock-visualization h4 {
-      font-size: 14px;
-      margin-top: 16px;
-      margin-bottom: 8px;
-      color: var(--vscode-foreground);
-    }
-    
-    .mock-visualization .metadata p {
-      margin: 6px 0;
-      font-size: 13px;
-    }
-    
-    .mock-visualization code {
-      background-color: var(--vscode-textCodeBlock-background);
-      color: var(--vscode-textPreformat-foreground);
-      padding: 2px 6px;
-      border-radius: 3px;
-      font-family: var(--vscode-editor-font-family);
-      font-size: 12px;
-    }
-    
-    .mock-visualization .insights {
-      list-style: none;
-      padding-left: 0;
-    }
-    
-    .mock-visualization .insights li {
-      padding: 8px 12px;
-      margin: 4px 0;
-      background-color: var(--vscode-list-hoverBackground);
-      border-radius: 4px;
-      font-size: 13px;
-    }
-    
-    .mock-visualization .code-preview {
-      background-color: var(--vscode-textCodeBlock-background);
-      border: 1px solid var(--vscode-panel-border);
-      border-radius: 4px;
-      padding: 12px;
-      overflow-x: auto;
-      margin: 8px 0;
-    }
-    
-    .mock-visualization .code-preview code {
-      background-color: transparent;
-      padding: 0;
-      font-size: 12px;
-      line-height: 1.5;
-      color: var(--vscode-editor-foreground);
-    }
-    
-    .mock-visualization .disclaimer {
-      margin-top: 16px;
-      padding: 12px;
-      background-color: var(--vscode-inputValidation-warningBackground);
-      border-left: 4px solid var(--vscode-inputValidation-warningBorder);
-      border-radius: 2px;
-      font-size: 12px;
     }
     
     /* Scrollbar styling */
