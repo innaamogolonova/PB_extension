@@ -34,6 +34,11 @@ export class CodeLensStrategy implements IDisplayStrategy, vscode.CodeLensProvid
   private webviewManager: WebviewManager | undefined;
   
   /**
+   * Extension context stored for use in annotation generation.
+   */
+  private context!: vscode.ExtensionContext;
+  
+  /**
    * Array of disposables to clean up when deactivated.
    * Includes providers, commands, event listeners.
    */
@@ -50,6 +55,9 @@ export class CodeLensStrategy implements IDisplayStrategy, vscode.CodeLensProvid
    */
   public activate(context: vscode.ExtensionContext): void {
     console.log('CodeLensStrategy: Activating');
+    
+    // Store context for later use
+    this.context = context;
     
     // Create the webview manager
     this.webviewManager = new WebviewManager(context);
@@ -215,7 +223,7 @@ export class CodeLensStrategy implements IDisplayStrategy, vscode.CodeLensProvid
     
     try {
       // Step 2: Generate the annotation (simulates LLM call)
-      const content = await generateAnnotation(functionInfo);
+      const content = await generateAnnotation(functionInfo, this.context);
       
       // Step 3: Update with real content
       this.webviewManager.update(content);

@@ -1,7 +1,30 @@
+import * as path from 'path';
+import { readFile } from 'fs/promises';
 import * as vscode from 'vscode';
 import OpenAI from "openai";
 import { FunctionInfo } from '../types';
 import { AnnotationContent } from '../types';
+
+// Cache the developer prompt to avoid reading file on every call
+let cachedDevPrompt: string | null = null;
+
+async function loadDevPrompt(extensionPath: string): Promise<string> {
+  if (!cachedDevPrompt) {
+    const promptPath = path.join(extensionPath, 'src', 'services', 'dev_prompt.txt');
+    cachedDevPrompt = await readFile(promptPath, 'utf-8');
+  }
+  return cachedDevPrompt;
+}
+
+async function convertMarkdownToHtml(markdown: string): Promise<string> {
+  try {
+    const { marked } = await import('marked');
+    const html = marked.parse(markdown);
+    return typeof html === 'string' ? html : markdown;
+  } catch (error) {
+    return markdown; // Fallback to original if conversion fails
+  }
+}
 
 export async function createChatCompletion(messages: OpenAI.Chat.ChatCompletionMessageParam[]) {
   
@@ -14,7 +37,7 @@ export async function createChatCompletion(messages: OpenAI.Chat.ChatCompletionM
       apiKey: apiKey
   }); 
   const completion = await client.chat.completions.create({
-        model: "gpt-3.5-turbo",
+        model: "gpt-4.1",
         messages: messages,
     }); 
     
@@ -22,20 +45,29 @@ export async function createChatCompletion(messages: OpenAI.Chat.ChatCompletionM
 }
 
 export async function generateAnnotation(
-  functionInfo: FunctionInfo
+  functionInfo: FunctionInfo,
+  context: vscode.ExtensionContext
 ): Promise<AnnotationContent> {
+  const dev_prompt = await loadDevPrompt(context.extensionPath);
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     {
-      role: "system",
-      content: "You are a helpful assistant that generates concise summaries for code functions."
+      role: "developer",
+      content: dev_prompt
     },
     {
       role: "user",
-      content: `Generate a concise summary for the following function: 
-      ${functionInfo.name}. Here is the full function: ${functionInfo.functionCode}. 
-      What variables, information, or function walkthroughs would be most helpful to understand this function behavior quickly?`
+      content: `Analyze the following function by providing relevant information that would 
+      help a developer understand it quickly:
+      Function Name: ${functionInfo.name}
+      Code:
+      \`\`\`
+      ${functionInfo.functionCode}
+      \`\`\`
+      Focus on: parameters, return value, key logic steps, dependencies, and anything else 
+      deemed important for understanding the function's purpose and behavior.`
     }
-    ];
+  ];
+  
   const completion = await createChatCompletion(messages);
   const llmResponse = completion.choices[0].message.content;
   if (!llmResponse) {
@@ -43,7 +75,7 @@ export async function generateAnnotation(
   }
   const content: AnnotationContent = {
     functionName: functionInfo.name,
-    summary: llmResponse, 
+    summary: await convertMarkdownToHtml(llmResponse), 
     timestamp: new Date(),
     isLoading: false
   };

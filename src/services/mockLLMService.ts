@@ -33,7 +33,7 @@ import { FunctionInfo, AnnotationContent } from '../types';
  * @returns Promise that resolves to annotation content
  * 
  * Example usage:
- *   const content = await generateAnnotation(functionInfo);
+ *   const content = await generateAnnotation(functionInfo, context);
  *   console.log(content.summary); // "This function calculates..."
  */
 export async function generateAnnotation(
