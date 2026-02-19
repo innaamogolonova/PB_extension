@@ -1,7 +1,7 @@
 {
-  "name": "function-annotations",
-  "displayName": "Function Annotations",
-  "description": "Mock up with CodeLens",
+  "name": "pb_extension",
+  "displayName": "PB Extension",
+  "description": "Execute files and track runtime values at each line, filter with LLM",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.108.1"
@@ -16,26 +16,41 @@
   "contributes": {
     "commands": [
       {
-        "command": "functionAnnotations.showAnnotation",
-        "title": "Show Function Annotation"
+        "command": "pbExtension.executeFile",
+        "title": "Execute File"
       }
     ],
     "configuration": {
-      "title": "Function Annotations",
+      "title": "PB Extension",
       "properties": {
-        "functionAnnotations.enabled": {
+        "pbExtension.enabled": {
           "type": "boolean",
-          "default": true,
-          "description": "Enable or disable function annotations"
+          "default": true
         },
-        "functionAnnotations.openaiApiKey": {
+        "pbExtension.openaiApiKey": {
           "type": "string",
-          "default": "",
-          "description": "OpenAI API key for generating function annotations"
+          "default": ""
         }
       }
     }
   },
+  "menus": {
+    "editor/context": [
+      {
+        "command": "pbExtension.executeFile",
+        "when": "editorTextFocus"
+      }
+    ]
+  },
+  
+  "keybindings": [
+    {
+      "command": "pbExtension.executeFile",
+      "key": "ctrl+shift+t",
+      "mac": "cmd+shift+t",
+      "when": "editorTextFocus"
+    }
+  ],
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
@@ -56,7 +71,6 @@
     "typescript-eslint": "^8.52.0"
   },
   "dependencies": {
-    "marked": "^17.0.2",
     "openai": "^6.21.0"
   }
 }

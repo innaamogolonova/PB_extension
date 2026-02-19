@@ -1,16 +1,3 @@
-/**
- * extension.ts
- * 
- * Main entry point for the VS Code extension.
- * 
- * This file is responsible for:
- * - Creating the display strategy (CodeLensStrategy)
- * - Activating the strategy when extension loads
- * - Deactivating and cleaning up when extension unloads
- * 
- * The extension uses a strategy pattern, making it easy to swap
- * display implementations later (CodeLens → floating webviews, etc.)
- */
 import * as vscode from 'vscode';
 import { CodeLensStrategy } from './display/CodeLensStrategy';
 /**
