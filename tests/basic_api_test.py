@@ -11,6 +11,21 @@ from functools import wraps
 
 
 # =========================
+# Fields ranked by importance:
+# 1. username
+# 2. email
+# 3. name
+# Rest is much less important, but still used
+# 4. predicted age
+# 5. predicted gender
+# 6. weather data
+# These are simply useless
+# 7. Dog jpg
+# 8. Joke
+# =========================
+
+
+# =========================
 # Utility / Infrastructure
 # =========================
 
@@ -250,23 +265,6 @@ class AnalyticsEngine:
 
 
 # =========================
-# Async Layer (Extra Complexity)
-# =========================
-
-#class AsyncSampler:
-#    def __init__(self, aggregator: DataAggregator):
-#        self.aggregator = aggregator
-#
-#    async def periodic_sample(self, interval: int = 5, cycles: int = 2):
-#        for i in range(cycles):
-#            print(f"\n[Async Sample Cycle {i + 1}]")
-#            profiles = self.aggregator.build_profiles()
-#            analytics = AnalyticsEngine(profiles)
-#            print("Summary:", analytics.summary())
-#            await asyncio.sleep(interval)
-
-
-# =========================
 # Reporting Layer
 # =========================
 
@@ -311,13 +309,6 @@ class Application:
         print(report.build_text_report())
         print("\n=== ANALYTICS SUMMARY ===")
         print(analytics.summary())
-
-        print("\nStarting async sampler...\n")
-        asyncio.run(self._run_async())
-
-    #async def _run_async(self):
-        #sampler = AsyncSampler(self.aggregator)
-        #await sampler.periodic_sample(interval=3, cycles=2)
 
 
 # =========================
