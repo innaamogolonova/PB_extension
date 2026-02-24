@@ -18,6 +18,10 @@
       {
         "command": "pbExtension.executeFile",
         "title": "Execute File"
+      },
+      {
+        "command": "pbExtension.testDebugExecutor",
+        "title": "Test Debug Executor"
       }
     ],
     "configuration": {
