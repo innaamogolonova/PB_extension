@@ -56,6 +56,13 @@ export function activate(context: vscode.ExtensionContext) {
 				console.log('Success:', trace.success);
 				console.log('Error:', trace.error);
 				console.log('Line states count:', trace.lineStates.size);
+				// shows captured data in console for testing purposes
+				for (const [line, state] of trace.lineStates) {
+					console.log(`Line ${line}: ${state.variables.length} variables`);
+					for (const variable of state.variables) {
+						console.log(`  ${variable.name}: ${variable.value} (${variable.type}) [${variable.scope}]`);
+					}
+				}
 				
 				vscode.window.showInformationMessage(
 					`Execution ${trace.success ? 'succeeded' : 'failed'}!`

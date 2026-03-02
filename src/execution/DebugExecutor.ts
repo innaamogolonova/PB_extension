@@ -67,11 +67,13 @@ export class DebugExecutor implements ILanguageExecutor {
 
             this.valueTracker?.startTracking(capturedSession);
 
-            // for MVP: wait for session to end, then return collected trace
-            // TODO later: implement a stepper 
-            await new Promise(resolve => setTimeout(resolve, 100)); 
-            await capturedSession.customRequest('continue'); 
-            await this.waitForCompletion();
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            const threadId = await this.getThreadId(capturedSession);
+            await capturedSession.customRequest('next', { threadId });
+            console.log('[DebugExecutor] Sent initial next command');
+
+            await this.startSteppingLoop(capturedSession, threadId);
 
             const trace = this.valueTracker?.getTrace();
             if (!trace) {
@@ -122,6 +124,7 @@ export class DebugExecutor implements ILanguageExecutor {
         return new Promise<void>((resolve) => {
             const onDidTerminate = vscode.debug.onDidTerminateDebugSession((session) => {
                 if (session.id === this.currentSession?.id) {
+                    console.log(`[DebugExecutor] Session terminated: ${session.id}`);
                     onDidTerminate.dispose();  
                     resolve();
                 }
@@ -129,6 +132,51 @@ export class DebugExecutor implements ILanguageExecutor {
             this.disposables.push(onDidTerminate);  
         });
     }
+
+    private async getThreadId(session: vscode.DebugSession): Promise<number> {
+        const response = await session.customRequest('threads', {});
+        const thread = response.threads[0];
+
+        if (!thread) {
+            throw new Error('No threads found in debug session');
+        }
+
+        return thread.id;
+    }
+
+    private async startSteppingLoop(session: vscode.DebugSession, threadId: number): Promise<void> {
+        console.log('[DebugExecutor] Starting polling-based stepping loop');
+        
+        while (session === vscode.debug.activeDebugSession) {
+            try {
+                const stackTrace = await session.customRequest('stackTrace', { 
+                    threadId, 
+                    startFrame: 0, 
+                    levels: 1 
+                });
+                
+                if (!stackTrace.stackFrames || stackTrace.stackFrames.length === 0) {
+                    console.log('[DebugExecutor] No stack frames, execution complete');
+                    break;
+                }
+                
+                const frame = stackTrace.stackFrames[0];
+                console.log(`[DebugExecutor] At line ${frame.line}, stepping...`);
+                
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                await session.customRequest('next', { threadId });
+                
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+            } catch (err) {
+                console.log(`[DebugExecutor] Stepping ended: ${err}`);
+                break;
+            }
+        }
+        
+        console.log('[DebugExecutor] Stepping loop finished');
+    } 
 
     public dispose(): void {
         if (this.currentSession) {
