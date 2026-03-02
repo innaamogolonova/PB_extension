@@ -162,6 +162,9 @@ export class DebugExecutor implements ILanguageExecutor {
                 
                 const frame = stackTrace.stackFrames[0];
                 console.log(`[DebugExecutor] At line ${frame.line}, stepping...`);
+
+                // Capture variables at this line
+                await this.valueTracker?.captureAtCurrentPosition(threadId);
                 
                 await new Promise(resolve => setTimeout(resolve, 100));
                 

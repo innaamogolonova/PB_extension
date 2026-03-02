@@ -100,23 +100,23 @@ export class DebugValueTracker implements IValueTracker {
             throw new Error('getVariablesInScope: No active debug session');
         }
 
-        let type: 'local' | 'global' | 'parameter' = 'local'; 
-        switch (scope.name) {
-            case 'Locals':
-            case 'locals':
-                type = 'local';
-                break;
-            case 'Globals':
-            case 'globals':
-                type = 'global';
-                break;
-            case 'Arguments':
-            case 'arguments':
-                type = 'parameter';
-                break;
-            default:
-                type = 'local';
-        }
+        // let type: 'local' | 'global' | 'parameter' = 'local'; 
+        // switch (scope.name) {
+        //     case 'Locals':
+        //     case 'locals':
+        //         type = 'local';
+        //         break;
+        //     case 'Globals':
+        //     case 'globals':
+        //         type = 'global';
+        //         break;
+        //     case 'Arguments':
+        //     case 'arguments':
+        //         type = 'parameter';
+        //         break;
+        //     default:
+        //         type = 'local';
+        // }
 
         const response = await this.currentSession.customRequest('variables', { 
             variablesReference: scope.variablesReference 
@@ -128,7 +128,7 @@ export class DebugValueTracker implements IValueTracker {
                 name: variable.name,
                 value: variable.value,  // Already a string
                 type: variable.type,
-                scope: type
+                // scope: type
             };
             
             variables.push(varInfo);
@@ -138,6 +138,27 @@ export class DebugValueTracker implements IValueTracker {
         }
 
         return variables;
+    }
+
+    public async captureAtCurrentPosition(threadId: number): Promise<void> {
+        try {
+            const {frameId, lineNumber} = await this.getStackTrace(threadId);
+            const scopes = await this.getScopes(frameId);
+            
+            const allVariables: VariableInfo[] = [];
+            for (const scope of scopes) {
+                const variables = await this.getVariablesInScope(scope);
+                allVariables.push(...variables); 
+            }
+            
+            console.log(`[DebugValueTracker] Captured ${allVariables.length} variables at line ${lineNumber}`);
+            this.valueStore.setLineState(lineNumber, allVariables);
+
+        } catch (err) {
+            const errorMsg = `Failed to capture variables: ${err}`;
+            console.error(`[DebugValueTracker] ${errorMsg}`);
+            this.lastError = errorMsg;
+        }
     }
 
     stopTracking(): void {

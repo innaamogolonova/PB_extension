@@ -12,7 +12,6 @@ export interface VariableInfo {
   name: string;
   value: string;
   type: string;
-  scope: 'local' | 'global' | 'parameter';
 }
 export interface LineValueState {
   lineNumber: number;

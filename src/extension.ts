@@ -60,7 +60,7 @@ export function activate(context: vscode.ExtensionContext) {
 				for (const [line, state] of trace.lineStates) {
 					console.log(`Line ${line}: ${state.variables.length} variables`);
 					for (const variable of state.variables) {
-						console.log(`  ${variable.name}: ${variable.value} (${variable.type}) [${variable.scope}]`);
+						console.log(`  ${variable.name}: ${variable.value} (${variable.type})`);
 					}
 				}
 				
