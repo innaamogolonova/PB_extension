@@ -194,5 +194,12 @@ export class DebugExecutor implements ILanguageExecutor {
         this.disposables = [];
     }
 
+    public static traceToJSON(trace: ExecutionTrace): object {
+        return {
+            ...trace,
+            lineStates: Object.fromEntries(trace.lineStates)
+        };
+    }
+
 }
 

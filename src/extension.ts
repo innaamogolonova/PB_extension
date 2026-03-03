@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 // import { CodeLensStrategy } from './display/CodeLensStrategy';
 /**
  * The display strategy instance.
@@ -30,6 +31,29 @@ export function activate(context: vscode.ExtensionContext) {
 	const testCommand = vscode.commands.registerCommand(
 		'pbExtension.testDebugExecutor',
 		async () => {
+
+			//  checks and makes traces directory
+			const { mkdir } = require('node:fs/promises');
+			const { writeFile } = require('node:fs/promises');
+
+			async function makeDirectory() {
+				const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+				if (!workspaceFolder) {
+					vscode.window.showErrorMessage('Please open a workspace folder');
+					throw new Error('No workspace folder'); // Change return to throw
+				}
+				const projectFolder = path.join(workspaceFolder.uri.fsPath, 'traces');
+				const dirCreation = await mkdir(projectFolder, { recursive: true });
+
+				console.log(dirCreation);
+				return projectFolder;
+			}
+
+			const projectFolder = await makeDirectory().catch((err) => {
+				vscode.window.showErrorMessage(`Failed to create traces directory: ${err}`);
+				throw err; // Stop execution if we can't create the folder
+			});
+
 			const editor = vscode.window.activeTextEditor;
 			if (!editor) {
 				vscode.window.showErrorMessage('No active editor');
@@ -52,11 +76,23 @@ export function activate(context: vscode.ExtensionContext) {
 			
 			try {
 				const trace = await executor.execute(filePath);
+
+				// convert trace to JSON-serializable format
+				const serializedTrace = DebugExecutor.traceToJSON(trace);
+
+				// for writing to file
+				const fileName = path.basename(filePath, path.extname(filePath));
+				const traceFileName = `${fileName}_trace.json`;
+				const fullTracePath = path.join(projectFolder, traceFileName);
+
+				const jsonContent = JSON.stringify(serializedTrace, null, 2);
+				await writeFile(fullTracePath, jsonContent, 'utf-8');
+				console.log(`✅ Trace saved to: ${fullTracePath}`);
+
 				console.log('Execution completed!');
 				console.log('Success:', trace.success);
 				console.log('Error:', trace.error);
 				console.log('Line states count:', trace.lineStates.size);
-				// shows captured data in console for testing purposes
 
 				for (const [line, states] of trace.lineStates) {
 					console.log(`Line ${line}: visited ${states.length} time(s)`);
@@ -67,7 +103,7 @@ export function activate(context: vscode.ExtensionContext) {
 						}
 					});
 				}
-				
+
 				vscode.window.showInformationMessage(
 					`Execution ${trace.success ? 'succeeded' : 'failed'}!`
 				);
