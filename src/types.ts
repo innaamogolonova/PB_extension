@@ -21,7 +21,7 @@ export interface LineValueState {
 export interface ExecutionTrace {
   filePath: string;
   language: string;
-  lineStates: Map<number, LineValueState>;
+  lineStates: Map<number, LineValueState[]>;
   executionStart: Date;
   executionEnd?: Date;
   success: boolean;

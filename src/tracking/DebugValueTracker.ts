@@ -181,10 +181,13 @@ export class DebugValueTracker implements IValueTracker {
     getTrace(): ExecutionTrace {
         this.executionEnd = new Date();
         
-        const array = this.valueStore.getAllLineStates(); 
-        const map = new Map<number, LineValueState>();
+        const array = this.valueStore.getAllLineStates();
+        
+        const map = new Map<number, LineValueState[]>();
         for (const lineState of array) {
-            map.set(lineState.lineNumber, lineState);
+            const existing = map.get(lineState.lineNumber) || [];
+            existing.push(lineState);
+            map.set(lineState.lineNumber, existing);
         }
         
         const success = this.lastError === undefined;
@@ -192,7 +195,7 @@ export class DebugValueTracker implements IValueTracker {
         return {
             filePath: this.filePath,
             language: this.languageId,
-            lineStates: map, 
+            lineStates: map,  
             executionStart: this.executionStart,
             executionEnd: this.executionEnd,
             success: success,

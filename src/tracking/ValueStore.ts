@@ -5,35 +5,32 @@
 import { LineValueState, VariableInfo } from "../types";
 
 export class ValueStore {
-    private lineStates: Map<number, LineValueState>;
-
-    constructor() {
-        this.lineStates = new Map();
-    }
+    // Change to store array of states per line
+    private states: Map<number, LineValueState[]> = new Map();
 
     public setLineState(lineNumber: number, variables: VariableInfo[]): void {
         const state: LineValueState = {
-            lineNumber: lineNumber,
-            variables: variables,
+            lineNumber,
+            variables,
             timestamp: Date.now()
         };
-        this.lineStates.set(lineNumber, state);
-    }
-    
-    public getLineState(lineNumber: number): LineValueState | undefined {
-        return this.lineStates.get(lineNumber);
+        
+        // Get existing states for this line or create new array
+        const existingStates = this.states.get(lineNumber) || [];
+        existingStates.push(state);  // Add new state to array
+        this.states.set(lineNumber, existingStates);
     }
 
     public getAllLineStates(): LineValueState[] {
-        return Array.from(this.lineStates.values());
-    }
-
-    public isEmpty(): boolean {
-        return this.lineStates.size === 0;
+        // Flatten all states into single array
+        const allStates: LineValueState[] = [];
+        for (const stateArray of this.states.values()) {
+            allStates.push(...stateArray);
+        }
+        return allStates;
     }
 
     public clear(): void {
-        this.lineStates.clear();
+        this.states.clear();
     }
-
 }
