@@ -70,8 +70,8 @@ export class DebugExecutor implements ILanguageExecutor {
             await new Promise(resolve => setTimeout(resolve, 100));
 
             const threadId = await this.getThreadId(capturedSession);
-            await capturedSession.customRequest('next', { threadId });
-            console.log('[DebugExecutor] Sent initial next command');
+            await capturedSession.customRequest('stepIn', { threadId });
+            console.log('[DebugExecutor] Sent initial stepIn command');
 
             await this.startSteppingLoop(capturedSession, threadId);
 
@@ -168,7 +168,7 @@ export class DebugExecutor implements ILanguageExecutor {
                 
                 await new Promise(resolve => setTimeout(resolve, 100));
                 
-                await session.customRequest('next', { threadId });
+                await session.customRequest('stepIn', { threadId });
                 
                 await new Promise(resolve => setTimeout(resolve, 100));
                 
