@@ -23,3 +23,9 @@ Extension implementation of projection boxes, kind of. Calling on an LLM to disp
 3. `npm install` from root
 4. `npm run compile` from root
 5. F5 to launch extension
+
+## Expected Behavior
+
+- File should execute (assuming that file is correct and executable)
+- Console logs should be descriptive and visible in the Debug Console
+- Intermediate values printed in the Debug Console
