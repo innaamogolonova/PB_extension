@@ -124,6 +124,18 @@ export class DebugValueTracker implements IValueTracker {
 
         const variables: VariableInfo[] = [];
         for (const variable of response.variables) {
+
+            // Skip Python debugger's internal scope containers
+            if (
+                variable.name === 'special variables' || 
+                variable.name === 'function variables' ||
+                variable.name === 'class variables' ||
+                variable.name.startsWith('__') ||  // Dunder methods like __name__, __file__
+                variable.presentationHint?.kind === 'virtual'  // Virtual/internal variables
+            ) {
+                continue;
+            }
+
             const varInfo: VariableInfo = {
                 name: variable.name,
                 value: variable.value,  // Already a string
