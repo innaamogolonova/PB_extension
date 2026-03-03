@@ -156,11 +156,13 @@ export class DebugValueTracker implements IValueTracker {
         try {
             const {frameId, lineNumber} = await this.getStackTrace(threadId);
             const scopes = await this.getScopes(frameId);
-            
             const allVariables: VariableInfo[] = [];
             for (const scope of scopes) {
-                const variables = await this.getVariablesInScope(scope);
-                allVariables.push(...variables); 
+                // skip globals, not needed for the purpose of this extension and adds duplicates 
+                if (scope.name === 'Locals' || scope.name === 'locals') {
+                    const variables = await this.getVariablesInScope(scope);
+                    allVariables.push(...variables);
+                }
             }
             
             console.log(`[DebugValueTracker] Captured ${allVariables.length} variables at line ${lineNumber}`);
