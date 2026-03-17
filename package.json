@@ -22,6 +22,10 @@
       {
         "command": "pbExtension.testDebugExecutor",
         "title": "Test Debug Executor"
+      },
+      {
+        "command": "pbExtension.toggleLLMFilter",
+        "title": "PB: Toggle LLM Filter"
       }
     ],
     "configuration": {
@@ -34,6 +38,10 @@
         "pbExtension.openaiApiKey": {
           "type": "string",
           "default": ""
+        },
+        "pbExtension.llmFilteringEnabled": {
+          "type": "boolean",
+          "default": true
         }
       }
     }

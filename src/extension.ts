@@ -1,11 +1,13 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { TraceManager } from './tracking/TraceManager';
 // import { CodeLensStrategy } from './display/CodeLensStrategy';
 /**
  * The display strategy instance.
  * Stored at module level so it's accessible in both activate and deactivate.
  */
 // let strategy: CodeLensStrategy | undefined;
+let traceManager: TraceManager;
 /**
  * Called when the extension is activated.
  * 
@@ -26,6 +28,8 @@ export function activate(context: vscode.ExtensionContext) {
 	// strategy.activate(context);
 	
 	// console.log('CodeLens strategy has been activated');
+
+	traceManager = new TraceManager();
 
 // --- TESTING MVP DebugExecutor.ts COMMAND ---
 	const testCommand = vscode.commands.registerCommand(
@@ -76,6 +80,9 @@ export function activate(context: vscode.ExtensionContext) {
 			
 			try {
 				const trace = await executor.execute(filePath);
+
+				traceManager.setTrace(trace);
+				console.log('[Extension] Trace loaded into TraceManager');
 
 				// convert trace to JSON-serializable format
 				const serializedTrace = DebugExecutor.traceToJSON(trace);
