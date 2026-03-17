@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { TraceManager } from './tracking/TraceManager';
 import { AnnotationsProvider } from './display/AnnotationsProvider';
+import { LLMFilterService } from './services/LLMFilterService';
+import { LLMHoverProvider } from './display/LLMHoverProvider';
 // import { CodeLensStrategy } from './display/CodeLensStrategy';
 /**
  * The display strategy instance.
@@ -10,6 +12,8 @@ import { AnnotationsProvider } from './display/AnnotationsProvider';
 // let strategy: CodeLensStrategy | undefined;
 let traceManager: TraceManager;
 let annotationsProvider: AnnotationsProvider;
+let llmFilterService: LLMFilterService | undefined;
+let llmHoverProvider: LLMHoverProvider | undefined;
 /**
  * Called when the extension is activated.
  * 
@@ -33,6 +37,23 @@ export function activate(context: vscode.ExtensionContext) {
 
 	traceManager = new TraceManager();
 	annotationsProvider = new AnnotationsProvider(traceManager);
+
+	const config = vscode.workspace.getConfiguration('pbExtension');
+	const apiKey = config.get<string>('openaiApiKey', '');
+	if (apiKey.trim().length > 0) {
+		llmFilterService = new LLMFilterService(apiKey);
+		llmHoverProvider = new LLMHoverProvider(traceManager, llmFilterService);
+
+		const hoverDisposable = vscode.languages.registerHoverProvider(
+			{ language: 'python' },
+			llmHoverProvider
+		);
+		context.subscriptions.push(hoverDisposable);
+	} else {
+		vscode.window.showWarningMessage(
+			'PB Extension: OpenAI API key not configured. LLM features disabled.'
+		);
+	}
 
 // --- TESTING MVP DebugExecutor.ts COMMAND ---
 	const testCommand = vscode.commands.registerCommand(
@@ -129,6 +150,18 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 	context.subscriptions.push(testCommand);
 
+	const toggleLLMCommand = vscode.commands.registerCommand(
+		'pbExtension.toggleLLMFilter',
+		async () => {
+			const config = vscode.workspace.getConfiguration('pbExtension');
+			const currentValue = config.get<boolean>('llmFilteringEnabled', true);
+			const newValue = !currentValue;
+			await config.update('llmFilteringEnabled', newValue, vscode.ConfigurationTarget.Global);
+			vscode.window.showInformationMessage(`LLM Filter ${newValue ? 'enabled' : 'disabled'}`);
+		}
+	);
+	context.subscriptions.push(toggleLLMCommand);
+
 	const activeEditorChangeListener = vscode.window.onDidChangeActiveTextEditor(async (editor) => {
 		const trace = traceManager.getFullTrace();
 		if (editor && trace && editor.document.uri.fsPath === trace.filePath) {
@@ -160,5 +193,10 @@ export function deactivate() {
 	if (annotationsProvider) {
 		annotationsProvider.dispose();
 	}
+	if (llmFilterService) {
+		llmFilterService.clearCache();
+	}
+	llmHoverProvider = undefined;
+	llmFilterService = undefined;
 	console.log('Function Annotations extension has been deactivated');
 }
