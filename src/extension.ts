@@ -162,6 +162,74 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 	context.subscriptions.push(toggleLLMCommand);
 
+	const showFullTraceCommand = vscode.commands.registerCommand(
+		'pbExtension.showFullTrace',
+		async () => {
+			const trace = traceManager.getFullTrace();
+			if (!trace) {
+				vscode.window.showWarningMessage('No execution trace available. Run Test Debug Executor first.');
+				return;
+			}
+
+			const { readFile } = await import('node:fs/promises');
+			const traceFileName = `${path.basename(trace.filePath, path.extname(trace.filePath))}_trace.json`;
+			const traceDir = path.join(path.dirname(trace.filePath), 'traces');
+			const traceFilePath = path.join(traceDir, traceFileName);
+
+			let traceJson: string;
+			try {
+				traceJson = await readFile(traceFilePath, 'utf-8');
+			} catch (err) {
+				vscode.window.showErrorMessage(`Trace file not found: ${traceFilePath}`);
+				return;
+			}
+
+			const panel = vscode.window.createWebviewPanel(
+				'pbTraceViewer',
+				`Trace: ${path.basename(trace.filePath)}`,
+				vscode.ViewColumn.Beside,
+				{ enableScripts: false }
+			);
+
+			const escapedJson = traceJson
+				.replace(/&/g, '&amp;')
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;');
+
+			panel.webview.html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Execution Trace</title>
+	<style>
+		body {
+			font-family: var(--vscode-editor-font-family);
+			font-size: var(--vscode-editor-font-size);
+			line-height: 1.5;
+			padding: 16px;
+			color: var(--vscode-editor-foreground);
+			background: var(--vscode-editor-background);
+		}
+		pre {
+			white-space: pre-wrap;
+			word-break: break-word;
+			margin: 0;
+		}
+		h2 {
+			margin-top: 0;
+		}
+	</style>
+</head>
+<body>
+	<h2>${path.basename(traceFilePath)}</h2>
+	<pre>${escapedJson}</pre>
+</body>
+</html>`;
+		}
+	);
+	context.subscriptions.push(showFullTraceCommand);
+
 	const activeEditorChangeListener = vscode.window.onDidChangeActiveTextEditor(async (editor) => {
 		const trace = traceManager.getFullTrace();
 		if (editor && trace && editor.document.uri.fsPath === trace.filePath) {
