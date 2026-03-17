@@ -16,7 +16,7 @@ Extension implementation of projection boxes, kind of. Calling on an LLM to disp
 - open command palette: mac `Ctrl+Shift+P`
 - type and select "Preferences: Open User Settings (JSON)"
 - dd this line anywhere in settings.json (before the closing }): \
-   "functionAnnotations.openaiApiKey": "your-api-key-here"
+   "pbExtension.openaiApiKey": "your-api-key-here"
 - replace `your-api-key` with your actual key
 - save the file
 
