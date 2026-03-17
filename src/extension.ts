@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { TraceManager } from './tracking/TraceManager';
+import { AnnotationsProvider } from './display/AnnotationsProvider';
 // import { CodeLensStrategy } from './display/CodeLensStrategy';
 /**
  * The display strategy instance.
@@ -8,6 +9,7 @@ import { TraceManager } from './tracking/TraceManager';
  */
 // let strategy: CodeLensStrategy | undefined;
 let traceManager: TraceManager;
+let annotationsProvider: AnnotationsProvider;
 /**
  * Called when the extension is activated.
  * 
@@ -30,6 +32,7 @@ export function activate(context: vscode.ExtensionContext) {
 	// console.log('CodeLens strategy has been activated');
 
 	traceManager = new TraceManager();
+	annotationsProvider = new AnnotationsProvider(traceManager);
 
 // --- TESTING MVP DebugExecutor.ts COMMAND ---
 	const testCommand = vscode.commands.registerCommand(
@@ -84,6 +87,8 @@ export function activate(context: vscode.ExtensionContext) {
 				traceManager.setTrace(trace);
 				console.log('[Extension] Trace loaded into TraceManager');
 
+				await annotationsProvider.applyAnnotations(editor);
+
 				// convert trace to JSON-serializable format
 				const serializedTrace = DebugExecutor.traceToJSON(trace);
 
@@ -123,6 +128,14 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	);
 	context.subscriptions.push(testCommand);
+
+	const activeEditorChangeListener = vscode.window.onDidChangeActiveTextEditor(async (editor) => {
+		const trace = traceManager.getFullTrace();
+		if (editor && trace && editor.document.uri.fsPath === trace.filePath) {
+			await annotationsProvider.applyAnnotations(editor);
+		}
+	});
+	context.subscriptions.push(activeEditorChangeListener);
 }
 /**
  * Called when the extension is deactivated.
@@ -144,5 +157,8 @@ export function deactivate() {
 	// 	strategy = undefined;
 	// }
 	
+	if (annotationsProvider) {
+		annotationsProvider.dispose();
+	}
 	console.log('Function Annotations extension has been deactivated');
 }
