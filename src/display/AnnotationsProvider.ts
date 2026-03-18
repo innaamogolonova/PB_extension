@@ -9,6 +9,7 @@ export class AnnotationsProvider {
     private traceManager: TraceManager;
     private criticalPointDetector: CriticalPointDetector;
     private llmService?: LLMFilterService;
+    private static readonly MAX_ANNOTATION_LENGTH = 120;
 
     constructor(traceManager: TraceManager, llmService?: LLMFilterService) {
         this.traceManager = traceManager;
@@ -53,10 +54,12 @@ export class AnnotationsProvider {
 
         if (llmEnabled && this.llmService) {
             const filterPromises = lineData.map(async (entry) => {
+                const semanticContext = this.buildSemanticContext(editor.document, entry.line);
                 const relevant = await this.llmService!.getRelevantVariables(
                     entry.line,
                     entry.lineCode,
-                    entry.variables
+                    entry.variables,
+                    semanticContext
                 );
                 return { line: entry.line, relevant };
             });
@@ -77,7 +80,7 @@ export class AnnotationsProvider {
                 continue;
             }
 
-            const annotationText = ' • ' + variablesToShow.map(v => `${v.name}=${v.value}`).join(', ');
+            const annotationText = this.formatAnnotationText(variablesToShow);
             const lineText = editor.document.lineAt(entry.line - 1);
             const range = new vscode.Range(entry.line - 1, lineText.text.length, entry.line - 1, lineText.text.length);
 
@@ -93,5 +96,59 @@ export class AnnotationsProvider {
 
     public dispose(): void {
         this.decorationsType.dispose();
+    }
+
+    private formatAnnotationText(variables: VariableInfo[]): string {
+        const parts = variables.map((variable) => `${variable.name}=${variable.value}`);
+        const result: string[] = [];
+        let usedLength = 3;
+
+        for (const part of parts) {
+            const separator = result.length > 0 ? 2 : 0;
+            const nextLength = usedLength + separator + part.length;
+
+            if (nextLength <= AnnotationsProvider.MAX_ANNOTATION_LENGTH) {
+                result.push(part);
+                usedLength = nextLength;
+                continue;
+            }
+
+            const remaining = AnnotationsProvider.MAX_ANNOTATION_LENGTH - usedLength - separator;
+            if (remaining > 4) {
+                result.push(`${part.slice(0, remaining - 1)}…`);
+            }
+            break;
+        }
+
+        return ` • ${result.join(', ')}`;
+    }
+
+    private buildSemanticContext(document: vscode.TextDocument, lineNumber: number): string {
+        const index = lineNumber - 1;
+        const start = Math.max(0, index - 3);
+        const end = Math.min(document.lineCount - 1, index + 2);
+
+        let nearestSymbol = '';
+        for (let i = index; i >= 0; i--) {
+            const text = document.lineAt(i).text.trim();
+            if (!text) {
+                continue;
+            }
+
+            if (/^(def\s+\w+\s*\(|class\s+\w+\s*[:(]|function\s+\w+\s*\(|\w+\s*\([^)]*\)\s*\{)/.test(text)) {
+                nearestSymbol = text;
+                break;
+            }
+        }
+
+        const nearbyLines: string[] = [];
+        for (let i = start; i <= end; i++) {
+            nearbyLines.push(`L${i + 1}: ${document.lineAt(i).text.trim()}`);
+        }
+
+        const relativePath = vscode.workspace.asRelativePath(document.uri, false);
+        const symbolBlock = nearestSymbol ? `\nNearest function/class: ${nearestSymbol}` : '';
+
+        return `File: ${relativePath}\nLanguage: ${document.languageId}${symbolBlock}\nNearby lines:\n${nearbyLines.join('\n')}`;
     }
 }
