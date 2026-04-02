@@ -1,19 +1,23 @@
 import * as vscode from 'vscode';
 import { TraceManager } from '../tracking/TraceManager';
-import { CriticalPointDetector } from '../analysis/CriticalPointDetector';
+import { LLMCriticalPointService } from '../analysis/LLMCriticalPointService';
 import { LLMFilterService } from '../services/LLMFilterService';
 import { VariableInfo } from '../types';
 
 export class AnnotationsProvider {
     private decorationsType: vscode.TextEditorDecorationType;
     private traceManager: TraceManager;
-    private criticalPointDetector: CriticalPointDetector;
+    private criticalPointService: LLMCriticalPointService;
     private llmService?: LLMFilterService;
     private static readonly MAX_ANNOTATION_LENGTH = 120;
 
-    constructor(traceManager: TraceManager, llmService?: LLMFilterService) {
+    constructor(
+        traceManager: TraceManager,
+        criticalPointService: LLMCriticalPointService,
+        llmService?: LLMFilterService
+    ) {
         this.traceManager = traceManager;
-        this.criticalPointDetector = new CriticalPointDetector();
+        this.criticalPointService = criticalPointService;
         this.llmService = llmService;
         
         this.decorationsType = vscode.window.createTextEditorDecorationType({
@@ -34,7 +38,13 @@ export class AnnotationsProvider {
         const config = vscode.workspace.getConfiguration('pbExtension');
         const llmEnabled = config.get<boolean>('llmFilteringEnabled', true);
 
-        const criticalLines = this.criticalPointDetector.detectCriticalLines(editor.document);
+        const lineVariableCounts = new Map<number, number>();
+        for (const [lineNumber, lineStates] of trace.lineStates) {
+            const latestState = lineStates[lineStates.length - 1];
+            lineVariableCounts.set(lineNumber, latestState?.variables.length ?? 0);
+        }
+
+        const criticalLines = await this.criticalPointService.detectCriticalLines(editor.document, lineVariableCounts);
         const decorations: vscode.DecorationOptions[] = [];
 
         const lineData = criticalLines

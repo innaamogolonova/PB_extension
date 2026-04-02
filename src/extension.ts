@@ -3,6 +3,7 @@ import * as path from 'path';
 import { TraceManager } from './tracking/TraceManager';
 import { AnnotationsProvider } from './display/AnnotationsProvider';
 import { LLMFilterService } from './services/LLMFilterService';
+import { LLMCriticalPointService } from './analysis/LLMCriticalPointService';
 import { FullTraceHoverProvider } from './display/FullTraceHoverProvider';
 // import { CodeLensStrategy } from './display/CodeLensStrategy';
 /**
@@ -13,6 +14,7 @@ import { FullTraceHoverProvider } from './display/FullTraceHoverProvider';
 let traceManager: TraceManager;
 let annotationsProvider: AnnotationsProvider;
 let llmFilterService: LLMFilterService | undefined;
+let llmCriticalPointService: LLMCriticalPointService;
 let fullTraceHoverProvider: FullTraceHoverProvider | undefined;
 /**
  * Called when the extension is activated.
@@ -40,16 +42,18 @@ export function activate(context: vscode.ExtensionContext) {
 	// Initialize LLM service if API key is configured
 	const config = vscode.workspace.getConfiguration('pbExtension');
 	const apiKey = config.get<string>('openaiApiKey', '');
+	llmCriticalPointService = new LLMCriticalPointService(apiKey);
+
 	if (apiKey.trim().length > 0) {
 		llmFilterService = new LLMFilterService(apiKey);
 	} else {
 		vscode.window.showWarningMessage(
 			'PB Extension: OpenAI API key not configured. LLM features disabled.'
-		);
+		);	
 	}
 
 	// Create providers (AnnotationsProvider receives LLM service for filtering)
-	annotationsProvider = new AnnotationsProvider(traceManager, llmFilterService);
+	annotationsProvider = new AnnotationsProvider(traceManager, llmCriticalPointService, llmFilterService);
 
 	fullTraceHoverProvider = new FullTraceHoverProvider(traceManager);
 	const hoverDisposable = vscode.languages.registerHoverProvider(
