@@ -28,6 +28,16 @@ Extension implementation of projection boxes, kind of. Calling on an LLM to disp
 
 ## Expected Behavior
 
-- File should execute (assuming that file is correct and executable)
-- Console logs should be descriptive and visible in the Debug Console
-- Intermediate values printed in the Debug Console
+Pre-req: make sure that the test file is executable and correct
+
+1. In the popped up extension window open the test directory and one of the test Python files.
+2. Open the command palette and run "Test Debug Executor" command
+
+Expected:
+
+- The file will execute with the debugger running
+- You will see per line traces as the debugger steps through the file
+- Result of executable file should show up on the terminal
+- After execution, there will be a slight delay of values displays
+- LLM filtered output will be an in-line ghost text decoration (git blame style)
+- Hovering over the line will show the full trace using codelens
