@@ -2,31 +2,41 @@
  * DebugValueTracker is responsible for tracking variable values during a debug session in an event-driven manner.
 */
 
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { ExecutionTrace, LineValueState, VariableInfo } from '../types';
+import { TraceManager } from './TraceManager';
 import { IValueTracker } from './IValueTracker';
-import { ValueStore } from './ValueStore';
+
+interface StackFrameInfo {
+    id: number;
+    line: number;
+    name?: string;
+    sourcePath?: string;
+}
 
 export class DebugValueTracker implements IValueTracker {
-    private filePath: string;
     private languageId: string;
+    private sessionId: string;
+    private entryPoint: string;
+    private traceManager: TraceManager;
     private currentSession?: vscode.DebugSession;
-    private valueStore: ValueStore; 
     private disposables: vscode.Disposable[];
     private executionStart: Date;
     private executionEnd?: Date;
     private isTracking: boolean;
     private lastError?: string;
 
-    constructor(filePath: string, languageId: string) {
-        this.filePath = filePath;
+    constructor(languageId: string, sessionId: string, traceManager: TraceManager, entryPoint: string) {
         this.languageId = languageId;
-        this.valueStore = new ValueStore();
+        this.sessionId = sessionId;
+        this.traceManager = traceManager;
+        this.entryPoint = path.normalize(entryPoint);
         this.disposables = [];
         this.isTracking = false;
         this.executionStart = new Date();
-        
-        console.log(`[DebugValueTracker] Created for ${filePath}`);
+
+        console.log(`[DebugValueTracker] Created for session ${sessionId}`);
     }
 
     public startTracking(session: vscode.DebugSession): void {
@@ -34,33 +44,20 @@ export class DebugValueTracker implements IValueTracker {
         this.isTracking = true;
 
         const disposable = vscode.debug.onDidReceiveDebugSessionCustomEvent((event) => {
-            if (event.session.id === this.currentSession?.id) {
-                if (event.event === 'stopped') {
-                    this.captureVariablesAtCurrentLine(event);
-                }
+            if (event.session.id === this.currentSession?.id && event.event === 'stopped') {
+                void this.captureVariablesAtStop(event);
             }
         });
 
         this.disposables.push(disposable);
 
         console.log(`[DebugValueTracker] Started tracking session: ${session.id}`);
-
     }
 
-    private async captureVariablesAtCurrentLine(event: vscode.DebugSessionCustomEvent): Promise<void> {
+    private async captureVariablesAtStop(event: vscode.DebugSessionCustomEvent): Promise<void> {
         try {
-            const threadId = event.body.threadId;
-            const {frameId, lineNumber} = await this.getStackTrace(threadId);
-            const scopes = await this.getScopes(frameId);
-            
-            const allVariables: VariableInfo[] = [];
-            for (const scope of scopes) {
-                const variables = await this.getVariablesInScope(scope);
-                allVariables.push(...variables); 
-            }
-            
-            this.valueStore.setLineState(lineNumber, allVariables);
-
+            const threadId = event.body.threadId as number;
+            await this.captureFromThread(threadId);
         } catch (err) {
             const errorMsg = `Failed to capture variables: ${err}`;
             console.error(`[DebugValueTracker] ${errorMsg}`);
@@ -68,106 +65,116 @@ export class DebugValueTracker implements IValueTracker {
         }
     }
 
-    private async getStackTrace(threadId: number): Promise<{ frameId: number, lineNumber: number }> {
+    private async getStackFrames(threadId: number, levels: number = 20): Promise<StackFrameInfo[]> {
         if (!this.currentSession) {
-            throw new Error('getStackTrace: No active debug session');
+            throw new Error('getStackFrames: No active debug session');
         }
-                
-        const response = await this.currentSession.customRequest('stackTrace', { 
-            threadId, 
-            startFrame: 0, 
-            levels: 1 
+
+        const response = await this.currentSession.customRequest('stackTrace', {
+            threadId,
+            startFrame: 0,
+            levels
         });
-        
-        const frame = response.stackFrames[0];
-        const result = { frameId: frame.id, lineNumber: frame.line };
-                
-        return result;
+
+        const stackFrames = response.stackFrames as Array<{
+            id: number;
+            line: number;
+            name?: string;
+            source?: { path?: string };
+        }>;
+
+        return stackFrames.map((frame) => ({
+            id: frame.id,
+            line: frame.line,
+            name: frame.name,
+            sourcePath: frame.source?.path
+        }));
     }
 
-    private async getScopes(frameId: number): Promise<any[]> {
+    private async getScopes(frameId: number): Promise<Array<{ name: string; variablesReference: number }>> {
         if (!this.currentSession) {
-            throw new Error('getScope: No active debug session');
+            throw new Error('getScopes: No active debug session');
         }
 
         const response = await this.currentSession.customRequest('scopes', { frameId });
-        
-        return response.scopes;
+        return response.scopes as Array<{ name: string; variablesReference: number }>;
     }
 
-    private async getVariablesInScope(scope: any): Promise<VariableInfo[]> {
+    private async getVariablesInScope(scope: { name: string; variablesReference: number }): Promise<VariableInfo[]> {
         if (!this.currentSession) {
             throw new Error('getVariablesInScope: No active debug session');
         }
 
-        // let type: 'local' | 'global' | 'parameter' = 'local'; 
-        // switch (scope.name) {
-        //     case 'Locals':
-        //     case 'locals':
-        //         type = 'local';
-        //         break;
-        //     case 'Globals':
-        //     case 'globals':
-        //         type = 'global';
-        //         break;
-        //     case 'Arguments':
-        //     case 'arguments':
-        //         type = 'parameter';
-        //         break;
-        //     default:
-        //         type = 'local';
-        // }
-
-        const response = await this.currentSession.customRequest('variables', { 
-            variablesReference: scope.variablesReference 
+        const response = await this.currentSession.customRequest('variables', {
+            variablesReference: scope.variablesReference
         });
 
         const variables: VariableInfo[] = [];
-        for (const variable of response.variables) {
-
-            // Skip Python debugger's internal scope containers
+        for (const variable of response.variables as Array<{
+            name: string;
+            value: string;
+            type: string;
+            presentationHint?: { kind?: string };
+        }>) {
             if (
-                variable.name === 'special variables' || 
+                variable.name === 'special variables' ||
                 variable.name === 'function variables' ||
                 variable.name === 'class variables' ||
-                variable.name.startsWith('__') ||  // Dunder methods like __name__, __file__
-                variable.presentationHint?.kind === 'virtual'  // Virtual/internal variables
+                variable.name.startsWith('__') ||
+                variable.presentationHint?.kind === 'virtual'
             ) {
                 continue;
             }
 
-            const varInfo: VariableInfo = {
+            variables.push({
                 name: variable.name,
-                value: variable.value,  // Already a string
-                type: variable.type,
-                // scope: type
-            };
-            
-            variables.push(varInfo);
-                        
-            // TODO: Expand nested objects in V3
-            // if (variable.variablesReference > 0) { ... }
+                value: variable.value,
+                type: variable.type
+            });
         }
 
         return variables;
     }
 
-    public async captureAtCurrentPosition(threadId: number): Promise<void> {
-        try {
-            const {frameId, lineNumber} = await this.getStackTrace(threadId);
-            const scopes = await this.getScopes(frameId);
+    private async captureFromThread(threadId: number): Promise<void> {
+        const stackFrames = await this.getStackFrames(threadId);
+        if (stackFrames.length === 0) {
+            return;
+        }
+
+        for (const frame of stackFrames) {
+            if (!frame.sourcePath) {
+                continue;
+            }
+
+            const normalizedPath = path.normalize(frame.sourcePath);
+            const scopes = await this.getScopes(frame.id);
             const allVariables: VariableInfo[] = [];
+
             for (const scope of scopes) {
-                // skip globals, not needed for the purpose of this extension and adds duplicates 
                 if (scope.name === 'Locals' || scope.name === 'locals') {
                     const variables = await this.getVariablesInScope(scope);
                     allVariables.push(...variables);
                 }
             }
-            
-            console.log(`[DebugValueTracker] Captured ${allVariables.length} variables at line ${lineNumber}`);
-            this.valueStore.setLineState(lineNumber, allVariables);
 
+            this.traceManager.appendState(
+                this.sessionId,
+                normalizedPath,
+                frame.line,
+                allVariables,
+                {
+                    frameId: frame.id,
+                    threadId,
+                    functionName: frame.name
+                }
+            );
+        }
+    }
+
+    public async captureAtCurrentPosition(threadId: number): Promise<void> {
+        try {
+            await this.captureFromThread(threadId);
         } catch (err) {
             const errorMsg = `Failed to capture variables: ${err}`;
             console.error(`[DebugValueTracker] ${errorMsg}`);
@@ -175,7 +182,7 @@ export class DebugValueTracker implements IValueTracker {
         }
     }
 
-    stopTracking(): void {
+    public stopTracking(): void {
         this.isTracking = false;
 
         for (const disposable of this.disposables) {
@@ -189,45 +196,52 @@ export class DebugValueTracker implements IValueTracker {
 
         this.currentSession = undefined;
 
-        console.log(`[DebugValueTracker] Stopped tracking`);
+        console.log('[DebugValueTracker] Stopped tracking');
     }
 
-    getTrace(): ExecutionTrace {
+    public getTrace(): ExecutionTrace {
         this.executionEnd = new Date();
-        
-        const array = this.valueStore.getAllLineStates();
-        
+
+        const session = this.traceManager.getSession(this.sessionId);
+        const entryFileTrace = session?.files.get(this.entryPoint);
+        const fallbackFileTrace = entryFileTrace ?? (session ? Array.from(session.files.values())[0] : undefined);
+
         const map = new Map<number, LineValueState[]>();
-        for (const lineState of array) {
-            const existing = map.get(lineState.lineNumber) || [];
-            existing.push(lineState);
-            map.set(lineState.lineNumber, existing);
+        if (fallbackFileTrace) {
+            for (const [lineNumber, states] of fallbackFileTrace.lineStates) {
+                map.set(
+                    lineNumber,
+                    states.map((state) => ({
+                        lineNumber: state.lineNumber,
+                        variables: state.variables,
+                        timestamp: state.timestamp
+                    }))
+                );
+            }
         }
-        
+
         const success = this.lastError === undefined;
 
         return {
-            filePath: this.filePath,
+            filePath: fallbackFileTrace?.filePath ?? this.entryPoint,
             language: this.languageId,
-            lineStates: map,  
+            lineStates: map,
             executionStart: this.executionStart,
             executionEnd: this.executionEnd,
-            success: success,
+            success,
             error: this.lastError
         };
     }
 
-    clear(): void {
-        this.valueStore.clear();
+    public clear(): void {
         this.executionStart = new Date();
         this.executionEnd = undefined;
         this.lastError = undefined;
-        
-        console.log(`[DebugValueTracker] Cleared tracker state`);
+
+        console.log('[DebugValueTracker] Cleared tracker state');
     }
 
-    dispose(): void {
+    public dispose(): void {
         this.stopTracking();
-        this.valueStore.clear();
     }
 }

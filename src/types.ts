@@ -33,3 +33,30 @@ export interface ValueDisplayContent {
   lineStates: LineValueState[];
   isLoading: boolean;
 }
+
+export interface CapturedFrameState extends LineValueState {
+  frameFilePath: string;
+  frameId: number;
+  threadId: number;
+  functionName?: string;
+}
+
+export interface FileTrace {
+  filePath: string;
+  language: string;
+  lineStates: Map<number, CapturedFrameState[]>;
+  sourceHash?: string;
+  capturedAt: number;
+  isStale: boolean;
+}
+
+export interface TraceSession {
+  sessionId: string;
+  entryPoint: string;
+  language: string;
+  files: Map<string, FileTrace>;
+  executionStart: Date;
+  executionEnd?: Date;
+  success: boolean;
+  error?: string;
+}

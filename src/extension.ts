@@ -96,7 +96,7 @@ export function activate(context: vscode.ExtensionContext) {
 			const { DebugExecutor } = require('./execution/DebugExecutor');
 			
 			// Create Python executor
-			const executor = new DebugExecutor('python', 'python');
+			const executor = new DebugExecutor('python', 'python', traceManager);
 			
 			if (!executor.canExecute(filePath)) {
 				vscode.window.showErrorMessage('Cannot execute this file type');
@@ -163,8 +163,8 @@ export function activate(context: vscode.ExtensionContext) {
 			vscode.window.showInformationMessage(`LLM Filter ${newValue ? 'enabled' : 'disabled'}`);
 
 			const editor = vscode.window.activeTextEditor;
-			const trace = traceManager.getFullTrace();
-			if (editor && trace && editor.document.uri.fsPath === trace.filePath) {
+			if (editor) {
+				traceManager.setActiveFilePath(editor.document.uri.fsPath);
 				await annotationsProvider.applyAnnotations(editor);
 			}
 		}
@@ -240,8 +240,8 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(showFullTraceCommand);
 
 	const activeEditorChangeListener = vscode.window.onDidChangeActiveTextEditor(async (editor) => {
-		const trace = traceManager.getFullTrace();
-		if (editor && trace && editor.document.uri.fsPath === trace.filePath) {
+		if (editor) {
+			traceManager.setActiveFilePath(editor.document.uri.fsPath);
 			await annotationsProvider.applyAnnotations(editor);
 		}
 	});

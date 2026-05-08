@@ -13,13 +13,9 @@ export class FullTraceHoverProvider implements vscode.HoverProvider {
         position: vscode.Position,
         _token: vscode.CancellationToken
     ): Promise<vscode.Hover | undefined> {
-        const trace = this.traceManager.getFullTrace();
-        if (!trace || document.uri.fsPath !== trace.filePath) {
-            return undefined;
-        }
-
+        this.traceManager.setActiveFilePath(document.uri.fsPath);
         const lineNumber = position.line + 1;
-        const allVariables = this.traceManager.getVariablesForLine(lineNumber);
+        const allVariables = this.traceManager.getLatestForFileLine(document.uri.fsPath, lineNumber);
 
         if (allVariables.length === 0) {
             return undefined;

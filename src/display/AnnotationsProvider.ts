@@ -26,7 +26,8 @@ export class AnnotationsProvider {
     }
 
     public async applyAnnotations(editor: vscode.TextEditor): Promise<void> {
-        const trace = this.traceManager.getFullTrace();
+        this.traceManager.setActiveFilePath(editor.document.uri.fsPath);
+        const trace = this.traceManager.getFileTrace(editor.document.uri.fsPath) ?? this.traceManager.getFullTrace();
         if (!trace) {
             return;
         }
@@ -40,7 +41,7 @@ export class AnnotationsProvider {
         const lineData = criticalLines
             .map((line) => ({
                 line,
-                variables: this.traceManager.getVariablesForLine(line),
+                variables: this.traceManager.getLatestForFileLine(editor.document.uri.fsPath, line),
                 lineCode: editor.document.lineAt(line - 1).text.trim()
             }))
             .filter((entry) => entry.variables.length > 0);
