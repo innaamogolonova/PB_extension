@@ -4,3 +4,4 @@ node_modules
 .env
 .vscode/settings.json
 traces/
+**/__pycache__/

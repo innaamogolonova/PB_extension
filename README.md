@@ -22,7 +22,7 @@ Extension implementation of projection boxes, kind of. Calling on an LLM to disp
   `"pbExtension.llmFilteringEnabled": true`
 - save the file
 
-3. `npm install` from root
+3. `npm install` from root (vulnerabilities might show up, ignore warnings for now)
 4. `npm run compile` from root
 5. F5 to launch extension
 
