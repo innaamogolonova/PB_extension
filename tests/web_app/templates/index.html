@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PB Trace Demo App</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 24px;
+      max-width: 980px;
+      color: #222;
+    }
+    h1, h2 {
+      margin-bottom: 8px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 14px;
+      background: #fafafa;
+    }
+    label {
+      display: block;
+      margin-top: 8px;
+      font-size: 14px;
+    }
+    input, select, button {
+      margin-top: 4px;
+      padding: 8px;
+      width: 100%;
+      box-sizing: border-box;
+      border-radius: 6px;
+      border: 1px solid #bbb;
+    }
+    button {
+      cursor: pointer;
+      background: #2f74ff;
+      color: white;
+      border: none;
+      margin-top: 12px;
+    }
+    pre {
+      background: #111;
+      color: #d8f8d8;
+      padding: 12px;
+      border-radius: 8px;
+      overflow: auto;
+      min-height: 180px;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>PB Runtime Trace Demo</h1>
+  <p>
+    This app calls backend APIs that produce rich runtime values:
+    request signatures, payload shapes, quote math, checkout receipt data.
+  </p>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Catalog</h2>
+      <button id="loadCatalogBtn">Load Catalog</button>
+      <pre id="catalogOutput">Click "Load Catalog"</pre>
+    </div>
+
+    <div class="card">
+      <h2>Quote</h2>
+      <label>User ID <input id="quoteUserId" value="user-101" /></label>
+      <label>Product
+        <select id="quoteProduct">
+          <option value="p-100">p-100 Notebook</option>
+          <option value="p-200">p-200 Mechanical Keyboard</option>
+          <option value="p-300">p-300 Headphones</option>
+        </select>
+      </label>
+      <label>Quantity <input id="quoteQty" type="number" value="2" min="1" /></label>
+      <label>Discount Code <input id="quoteDiscount" value="WELCOME10" /></label>
+      <button id="quoteBtn">Request Quote</button>
+      <pre id="quoteOutput">Fill fields and click "Request Quote"</pre>
+    </div>
+
+    <div class="card">
+      <h2>Checkout</h2>
+      <label>User ID <input id="checkoutUserId" value="user-101" /></label>
+      <label>Product
+        <select id="checkoutProduct">
+          <option value="p-100">p-100 Notebook</option>
+          <option value="p-200">p-200 Mechanical Keyboard</option>
+          <option value="p-300">p-300 Headphones</option>
+        </select>
+      </label>
+      <label>Quantity <input id="checkoutQty" type="number" value="1" min="1" /></label>
+      <label>Payment Token <input id="checkoutToken" value="tok_demo_abc123" /></label>
+      <label>Shipping Country
+        <select id="checkoutCountry">
+          <option value="US">US</option>
+          <option value="DE">DE</option>
+          <option value="IN">IN</option>
+          <option value="GB">GB</option>
+        </select>
+      </label>
+      <button id="checkoutBtn">Checkout</button>
+      <pre id="checkoutOutput">Fill fields and click "Checkout"</pre>
+    </div>
+
+    <div class="card">
+      <h2>Why this is trace-friendly</h2>
+      <ul>
+        <li>Nested objects from request models and service responses</li>
+        <li>Payload shape + hash/fingerprint derivation</li>
+        <li>Branching logic (discounts, tax by country)</li>
+        <li>Cross-file flow: main.py -> request_models.py -> services.py -> utils/signature_utils.py</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    const out = {
+      catalog: document.getElementById('catalogOutput'),
+      quote: document.getElementById('quoteOutput'),
+      checkout: document.getElementById('checkoutOutput'),
+    };
+
+    function pretty(value) {
+      return JSON.stringify(value, null, 2);
+    }
+
+    async function requestJson(url, options = {}) {
+      const res = await fetch(url, {
+        headers: { 'Content-Type': 'application/json' },
+        ...options,
+      });
+      const data = await res.json();
+      return { ok: res.ok, status: res.status, data };
+    }
+
+    document.getElementById('loadCatalogBtn').addEventListener('click', async () => {
+      const result = await requestJson('/api/catalog');
+      out.catalog.textContent = pretty(result);
+    });
+
+    document.getElementById('quoteBtn').addEventListener('click', async () => {
+      const payload = {
+        user_id: document.getElementById('quoteUserId').value,
+        product_id: document.getElementById('quoteProduct').value,
+        quantity: Number(document.getElementById('quoteQty').value),
+        discount_code: document.getElementById('quoteDiscount').value || null,
+      };
+
+      const result = await requestJson('/api/quote', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      out.quote.textContent = pretty({ payload, ...result });
+    });
+
+    document.getElementById('checkoutBtn').addEventListener('click', async () => {
+      const payload = {
+        user_id: document.getElementById('checkoutUserId').value,
+        product_id: document.getElementById('checkoutProduct').value,
+        quantity: Number(document.getElementById('checkoutQty').value),
+        payment_token: document.getElementById('checkoutToken').value,
+        shipping_country: document.getElementById('checkoutCountry').value,
+      };
+
+      const result = await requestJson('/api/checkout', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      out.checkout.textContent = pretty({ payload, ...result });
+    });
+  </script>
+</body>
+</html>
