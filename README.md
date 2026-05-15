@@ -2,6 +2,10 @@
 
 Extension implementation of projection boxes, kind of. Calling on an LLM to display relevant variable and function information.
 
+## Purpose 
+
+Help programmers understand code by showing runtime values at meaningful places, with LLM-chosen relevance, in the editor — inspired by projection boxes / live programming.
+
 ## Requirements
 
 - VS Code version ^1.108.1
