@@ -4,6 +4,7 @@ import { TraceManager } from './tracking/TraceManager';
 import { AnnotationsProvider } from './display/AnnotationsProvider';
 import { LLMFilterService } from './services/LLMFilterService';
 import { FullTraceHoverProvider } from './display/FullTraceHoverProvider';
+import { SessionOrchestrator } from './orchestration/SessionOrchestrator';
 // import { CodeLensStrategy } from './display/CodeLensStrategy';
 /**
  * The display strategy instance.
@@ -11,6 +12,7 @@ import { FullTraceHoverProvider } from './display/FullTraceHoverProvider';
  */
 // let strategy: CodeLensStrategy | undefined;
 let traceManager: TraceManager;
+let sessionOrchestrator: SessionOrchestrator | undefined;
 let annotationsProvider: AnnotationsProvider;
 let llmFilterService: LLMFilterService | undefined;
 let fullTraceHoverProvider: FullTraceHoverProvider | undefined;
@@ -36,6 +38,25 @@ export function activate(context: vscode.ExtensionContext) {
 	// console.log('CodeLens strategy has been activated');
 
 	traceManager = new TraceManager();
+	sessionOrchestrator = new SessionOrchestrator(traceManager, context);
+	context.subscriptions.push(sessionOrchestrator);
+
+	// Attach-tracing commands (also registered in SessionOrchestrator; listed here for discoverability)
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pbExtension.startAttachedTracing', () => {
+			void sessionOrchestrator?.startAttachedTracing();
+		}),
+		vscode.commands.registerCommand('pbExtension.stopAttachedTracing', () => {
+			void sessionOrchestrator?.stopAttachedTracing();
+		}),
+		vscode.commands.registerCommand('pbExtension.toggleAttachedTracing', () => {
+			if (sessionOrchestrator?.isAttachedTracingEnabled()) {
+				void sessionOrchestrator.stopAttachedTracing();
+			} else {
+				void sessionOrchestrator?.startAttachedTracing();
+			}
+		})
+	);
 
 	// Initialize LLM service if API key is configured
 	const config = vscode.workspace.getConfiguration('pbExtension');
@@ -273,6 +294,7 @@ export function deactivate() {
 	if (llmFilterService) {
 		llmFilterService.clearCache();
 	}
+	sessionOrchestrator = undefined;
 	fullTraceHoverProvider = undefined;
 	llmFilterService = undefined;
 	console.log('Function Annotations extension has been deactivated');

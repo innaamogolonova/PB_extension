@@ -60,3 +60,16 @@ export interface TraceSession {
   success: boolean;
   error?: string;
 }
+
+/** How PB collects runtime snapshots from the debugger. */
+export type PbCaptureMode = 'exhaustive-step' | 'breakpoint-continue';
+
+/** Who started the VS Code debug session PB is tied to. */
+export type PbSessionRole = 'owned' | 'observed';
+
+/** Per–debug-session policy (Phase 0 vocabulary; wired in later phases). */
+export interface PbSessionPolicy {
+  role: PbSessionRole;
+  captureMode: PbCaptureMode;
+  debugSessionId: string;
+}

@@ -1,6 +1,12 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { getCaptureMode } from '../config';
 import { ILanguageExecutor } from './ILanguageExecutor';
+import {
+    createPbSessionPolicy,
+    registerOwnedDebugSession,
+    unregisterOwnedDebugSession
+} from '../sessionPolicy';
 import { ExecutionTrace } from '../types';
 import { DebugValueTracker } from '../tracking/DebugValueTracker';
 import { TraceManager } from '../tracking/TraceManager';
@@ -41,6 +47,9 @@ export class DebugExecutor implements ILanguageExecutor {
     }
 
     public async execute(filePath: string): Promise<ExecutionTrace> {
+        const captureMode = getCaptureMode();
+        console.log(`[DebugExecutor] captureMode=${captureMode} (behavior unchanged in Phase 0)`);
+
         this.activeTraceSessionId = this.traceManager.createSession(filePath, this.languageId);
 
         try {
@@ -70,6 +79,10 @@ export class DebugExecutor implements ILanguageExecutor {
 
             this.currentSession = capturedSession;
             sessionListener.dispose();
+
+            registerOwnedDebugSession(capturedSession.id);
+            const sessionPolicy = createPbSessionPolicy(capturedSession, 'owned', captureMode);
+            console.log(`[DebugExecutor] session policy: role=${sessionPolicy.role}, captureMode=${sessionPolicy.captureMode}`);
 
             this.valueTracker.startTracking(capturedSession);
 
@@ -179,6 +192,7 @@ export class DebugExecutor implements ILanguageExecutor {
 
     public dispose(): void {
         if (this.currentSession) {
+            unregisterOwnedDebugSession(this.currentSession.id);
             void vscode.debug.stopDebugging(this.currentSession);
             this.currentSession = undefined;
         }

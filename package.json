@@ -17,19 +17,38 @@
     "commands": [
       {
         "command": "pbExtension.executeFile",
-        "title": "Execute File"
+        "title": "Execute File",
+        "category": "PB Extension"
       },
       {
         "command": "pbExtension.testDebugExecutor",
-        "title": "Test Debug Executor"
+        "title": "Test Debug Executor",
+        "category": "PB Extension"
       },
       {
         "command": "pbExtension.toggleLLMFilter",
-        "title": "PB: Toggle LLM Filter"
+        "title": "Toggle LLM Filter",
+        "category": "PB Extension"
       },
       {
         "command": "pbExtension.showFullTrace",
-        "title": "PB: Show Full Trace"
+        "title": "Show Full Trace",
+        "category": "PB Extension"
+      },
+      {
+        "command": "pbExtension.startAttachedTracing",
+        "title": "Start Tracing",
+        "category": "PB Extension"
+      },
+      {
+        "command": "pbExtension.stopAttachedTracing",
+        "title": "Stop Tracing",
+        "category": "PB Extension"
+      },
+      {
+        "command": "pbExtension.toggleAttachedTracing",
+        "title": "Toggle Attach Tracing",
+        "category": "PB Extension"
       }
     ],
     "configuration": {
@@ -46,6 +65,15 @@
         "pbExtension.llmFilteringEnabled": {
           "type": "boolean",
           "default": true
+        },
+        "pbExtension.captureMode": {
+          "type": "string",
+          "enum": [
+            "exhaustive-step",
+            "breakpoint-continue"
+          ],
+          "default": "exhaustive-step",
+          "description": "How PB collects traces from the debugger. exhaustive-step: step through lines (current). breakpoint-continue: capture at breakpoints only (planned)."
         }
       }
     }
