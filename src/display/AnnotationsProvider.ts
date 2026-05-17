@@ -1,8 +1,10 @@
 import * as vscode from 'vscode';
+import { pbLog } from '../pbOutput';
 import { TraceManager } from '../tracking/TraceManager';
 import { CriticalPointDetector } from '../analysis/CriticalPointDetector';
 import { LLMFilterService } from '../services/LLMFilterService';
 import { VariableInfo } from '../types';
+import { formatInlineTraceSummary } from './formatTraceMarkdown';
 
 export class AnnotationsProvider {
     private decorationsType: vscode.TextEditorDecorationType;
@@ -15,45 +17,53 @@ export class AnnotationsProvider {
         this.traceManager = traceManager;
         this.criticalPointDetector = new CriticalPointDetector();
         this.llmService = llmService;
-        
+
         this.decorationsType = vscode.window.createTextEditorDecorationType({
             after: {
-                color: new vscode.ThemeColor('editorCodeLens.foreground'),
-                margin: '0 0 0 2em',
-                textDecoration: 'none; opacity: 0.6'
+                color: new vscode.ThemeColor('editorLightBulb.foreground'),
+                fontStyle: 'italic',
+                margin: '0 0 0 3ch',
+                textDecoration: 'none'
             }
         });
     }
 
     public async applyAnnotations(editor: vscode.TextEditor): Promise<void> {
-        this.traceManager.setActiveFilePath(editor.document.uri.fsPath);
-        const trace = this.traceManager.getFileTrace(editor.document.uri.fsPath) ?? this.traceManager.getFullTrace();
-        if (!trace) {
+        const filePath = editor.document.uri.fsPath;
+        this.traceManager.setActiveFilePath(filePath);
+
+        const fileTrace = this.traceManager.findFileTrace(filePath);
+        if (!fileTrace) {
+            editor.setDecorations(this.decorationsType, []);
             return;
         }
 
         const config = vscode.workspace.getConfiguration('pbExtension');
-        const llmEnabled = config.get<boolean>('llmFilteringEnabled', true);
+        const llmEnabled = config.get<boolean>('llmFilteringEnabled', true) && !!this.llmService;
 
+        const tracedLines = this.traceManager.getTracedLineNumbers(filePath);
         const criticalLines = this.criticalPointDetector.detectCriticalLines(editor.document);
-        const decorations: vscode.DecorationOptions[] = [];
+        const linesToDecorate = Array.from(new Set([...tracedLines, ...criticalLines])).sort(
+            (a, b) => a - b
+        );
 
-        const lineData = criticalLines
+        const lineData = linesToDecorate
             .map((line) => ({
                 line,
-                variables: this.traceManager.getLatestForFileLine(editor.document.uri.fsPath, line),
+                variables: this.traceManager.getLatestForFileLine(filePath, line),
                 lineCode: editor.document.lineAt(line - 1).text.trim()
             }))
             .filter((entry) => entry.variables.length > 0);
 
         if (lineData.length === 0) {
-            editor.setDecorations(this.decorationsType, decorations);
+            editor.setDecorations(this.decorationsType, []);
+            pbLog(`Annotations: no variable data for ${filePath} (${tracedLines.length} traced lines)`);
             return;
         }
 
         const filteredByLine = new Map<number, VariableInfo[]>();
 
-        if (llmEnabled && this.llmService) {
+        if (llmEnabled) {
             const filterPromises = lineData.map(async (entry) => {
                 const semanticContext = this.buildSemanticContext(editor.document, entry.line);
                 const relevant = await this.llmService!.getRelevantVariables(
@@ -62,20 +72,25 @@ export class AnnotationsProvider {
                     entry.variables,
                     semanticContext
                 );
-                return { line: entry.line, relevant };
+                return { line: entry.line, relevant, fallback: entry.variables };
             });
 
             const results = await Promise.all(filterPromises);
             for (const result of results) {
-                filteredByLine.set(result.line, result.relevant);
+                const picked =
+                    result.relevant.length > 0
+                        ? result.relevant
+                        : result.fallback.slice(0, 3);
+                filteredByLine.set(result.line, picked);
             }
         }
 
+        const decorations: vscode.DecorationOptions[] = [];
+
         for (const entry of lineData) {
-            const variablesToShow =
-                llmEnabled && this.llmService
-                    ? (filteredByLine.get(entry.line) ?? [])
-                    : entry.variables;
+            const variablesToShow = llmEnabled
+                ? (filteredByLine.get(entry.line) ?? entry.variables.slice(0, 3))
+                : entry.variables.slice(0, 4);
 
             if (variablesToShow.length === 0) {
                 continue;
@@ -83,12 +98,21 @@ export class AnnotationsProvider {
 
             const annotationText = this.formatAnnotationText(variablesToShow);
             const lineText = editor.document.lineAt(entry.line - 1);
-            const range = new vscode.Range(entry.line - 1, lineText.text.length, entry.line - 1, lineText.text.length);
+            const range = new vscode.Range(
+                entry.line - 1,
+                lineText.text.length,
+                entry.line - 1,
+                lineText.text.length
+            );
 
-            decorations.push({ range, renderOptions: { after: { contentText: annotationText } } });
+            decorations.push({
+                range,
+                renderOptions: { after: { contentText: annotationText } }
+            });
         }
 
         editor.setDecorations(this.decorationsType, decorations);
+        pbLog(`Annotations: ${decorations.length} line(s) decorated in ${filePath}`);
     }
 
     public clear(editor: vscode.TextEditor): void {
@@ -100,28 +124,15 @@ export class AnnotationsProvider {
     }
 
     private formatAnnotationText(variables: VariableInfo[]): string {
-        const parts = variables.map((variable) => `${variable.name}=${variable.value}`);
-        const result: string[] = [];
-        let usedLength = 3;
-
-        for (const part of parts) {
-            const separator = result.length > 0 ? 2 : 0;
-            const nextLength = usedLength + separator + part.length;
-
-            if (nextLength <= AnnotationsProvider.MAX_ANNOTATION_LENGTH) {
-                result.push(part);
-                usedLength = nextLength;
-                continue;
-            }
-
-            const remaining = AnnotationsProvider.MAX_ANNOTATION_LENGTH - usedLength - separator;
-            if (remaining > 4) {
-                result.push(`${part.slice(0, remaining - 1)}…`);
-            }
-            break;
+        const summary = formatInlineTraceSummary(variables, 4);
+        if (!summary) {
+            return '';
         }
-
-        return ` • ${result.join(', ')}`;
+        const text = ` ⟨PB⟩ ${summary}`;
+        if (text.length <= AnnotationsProvider.MAX_ANNOTATION_LENGTH) {
+            return text;
+        }
+        return `${text.slice(0, AnnotationsProvider.MAX_ANNOTATION_LENGTH - 1)}…`;
     }
 
     private buildSemanticContext(document: vscode.TextDocument, lineNumber: number): string {
@@ -136,7 +147,7 @@ export class AnnotationsProvider {
                 continue;
             }
 
-            if (/^(def\s+\w+\s*\(|class\s+\w+\s*[:(]|function\s+\w+\s*\(|\w+\s*\([^)]*\)\s*\{)/.test(text)) {
+            if (/^(def\s+\w+\s*\(|class\s+\w+\s*[:(])/.test(text)) {
                 nearestSymbol = text;
                 break;
             }

@@ -6,6 +6,25 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
+			"name": "Python: Current File",
+			"type": "debugpy",
+			"request": "launch",
+			"program": "${file}",
+			"console": "integratedTerminal",
+			"justMyCode": true,
+			"stopOnEntry": true
+		},
+		{
+			"name": "Python: tests/web_app/main.py",
+			"type": "debugpy",
+			"request": "launch",
+			"program": "${workspaceFolder}/tests/web_app/main.py",
+			"console": "integratedTerminal",
+			"justMyCode": true,
+			"stopOnEntry": true,
+			"cwd": "${workspaceFolder}"
+		},
+		{
 			"name": "Run Extension",
 			"type": "extensionHost",
 			"request": "launch",

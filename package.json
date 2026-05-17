@@ -49,6 +49,16 @@
         "command": "pbExtension.toggleAttachedTracing",
         "title": "Toggle Attach Tracing",
         "category": "PB Extension"
+      },
+      {
+        "command": "pbExtension.debugPythonFileWithTracing",
+        "title": "Debug Python File with Tracing",
+        "category": "PB Extension"
+      },
+      {
+        "command": "pbExtension.showLineTrace",
+        "title": "Show PB Line Trace",
+        "category": "PB Extension"
       }
     ],
     "configuration": {
@@ -65,6 +75,11 @@
         "pbExtension.llmFilteringEnabled": {
           "type": "boolean",
           "default": true
+        },
+        "pbExtension.autoContinue": {
+          "type": "boolean",
+          "default": true,
+          "description": "After capturing at a PB breakpoint, automatically continue the debug session."
         },
         "pbExtension.captureMode": {
           "type": "string",

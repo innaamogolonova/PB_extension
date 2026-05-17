@@ -1,3 +1,4 @@
+import { normalizeSourcePath, resolveRealPath } from "../orchestration/pathUtils";
 import { ExecutionTrace, FileTrace, LineValueState, TraceSession, VariableInfo } from "../types";
 
 interface FrameMetadata {
@@ -52,8 +53,9 @@ export class TraceManager {
             throw new Error(`Cannot append state, session not found: ${sessionId}`);
         }
 
-        const fileTrace = session.files.get(filePath) ?? {
-            filePath,
+        const canonicalPath = resolveRealPath(filePath);
+        const fileTrace = session.files.get(canonicalPath) ?? {
+            filePath: canonicalPath,
             language: session.language,
             lineStates: new Map(),
             capturedAt: Date.now(),
@@ -74,13 +76,53 @@ export class TraceManager {
         fileTrace.lineStates.set(lineNumber, lineStates);
         fileTrace.capturedAt = Date.now();
 
-        session.files.set(filePath, fileTrace);
+        session.files.set(canonicalPath, fileTrace);
         this.activeSessionId = sessionId;
-        this.activeFilePath = filePath;
+        this.activeFilePath = canonicalPath;
+    }
+
+    /**
+     * Resolve file trace across path variants (editor path vs debugger realpath).
+     */
+    public findFileTrace(filePath: string, sessionId?: string): FileTrace | undefined {
+        const session = this.resolveSession(sessionId);
+        if (!session) {
+            return undefined;
+        }
+
+        const candidates = [
+            resolveRealPath(filePath),
+            normalizeSourcePath(filePath),
+            filePath
+        ];
+
+        for (const candidate of candidates) {
+            const hit = session.files.get(candidate);
+            if (hit) {
+                return hit;
+            }
+        }
+
+        const targetReal = resolveRealPath(filePath);
+        for (const [key, trace] of session.files) {
+            if (resolveRealPath(key) === targetReal) {
+                return trace;
+            }
+        }
+
+        return undefined;
+    }
+
+    public getTracedLineNumbers(filePath: string, sessionId?: string): number[] {
+        const fileTrace = this.findFileTrace(filePath, sessionId);
+        if (!fileTrace) {
+            return [];
+        }
+        return Array.from(fileTrace.lineStates.keys()).sort((a, b) => a - b);
     }
 
     public getLatestForFileLine(filePath: string, lineNumber: number, sessionId?: string): VariableInfo[] {
-        const fileTrace = this.getFileTrace(filePath, sessionId);
+        const fileTrace = this.findFileTrace(filePath, sessionId);
         if (!fileTrace) {
             return [];
         }
@@ -94,12 +136,7 @@ export class TraceManager {
     }
 
     public getFileTrace(filePath: string, sessionId?: string): FileTrace | undefined {
-        const session = this.resolveSession(sessionId);
-        if (!session) {
-            return undefined;
-        }
-
-        return session.files.get(filePath);
+        return this.findFileTrace(filePath, sessionId);
     }
 
     public markFileStale(filePath: string, sessionId?: string): void {
@@ -147,8 +184,9 @@ export class TraceManager {
             throw new Error('Failed to create compatibility session');
         }
 
+        const canonicalPath = resolveRealPath(trace.filePath);
         const fileTrace: FileTrace = {
-            filePath: trace.filePath,
+            filePath: canonicalPath,
             language: trace.language,
             lineStates: new Map(),
             capturedAt: Date.now(),
@@ -158,14 +196,14 @@ export class TraceManager {
         for (const [lineNumber, states] of trace.lineStates) {
             const capturedStates = states.map((state) => ({
                 ...state,
-                frameFilePath: trace.filePath,
+                frameFilePath: canonicalPath,
                 frameId: 0,
                 threadId: 0
             }));
             fileTrace.lineStates.set(lineNumber, capturedStates);
         }
 
-        session.files.set(trace.filePath, fileTrace);
+        session.files.set(canonicalPath, fileTrace);
         session.executionStart = trace.executionStart;
         session.executionEnd = trace.executionEnd;
         session.success = trace.success;
@@ -173,7 +211,7 @@ export class TraceManager {
 
         this.sessions.set(sessionId, session);
         this.activeSessionId = sessionId;
-        this.activeFilePath = trace.filePath;
+        this.activeFilePath = canonicalPath;
     }
 
     public getVariablesForLine(lineNumber: number, filePath?: string, sessionId?: string): VariableInfo[] {

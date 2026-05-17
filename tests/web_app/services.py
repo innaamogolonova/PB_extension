@@ -75,3 +75,15 @@ class OrderService:
 
 
 order_service = OrderService()
+
+
+if __name__ == "__main__":
+    # Exercises heuristic breakpoints when debugging this file directly.
+    demo_request = QuoteRequest(
+        user_id="demo-user",
+        product_id="p-100",
+        quantity=2,
+        discount_code="WELCOME10",
+    )
+    result = order_service.compute_quote(demo_request)
+    print(result)

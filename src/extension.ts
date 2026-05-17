@@ -4,6 +4,9 @@ import { TraceManager } from './tracking/TraceManager';
 import { AnnotationsProvider } from './display/AnnotationsProvider';
 import { LLMFilterService } from './services/LLMFilterService';
 import { FullTraceHoverProvider } from './display/FullTraceHoverProvider';
+import { PbTraceCodeLensProvider } from './display/PbTraceCodeLensProvider';
+import { getPythonDebugAdapterType } from './config';
+import { refreshTraceDisplay } from './display/refreshTraceDisplay';
 import { SessionOrchestrator } from './orchestration/SessionOrchestrator';
 // import { CodeLensStrategy } from './display/CodeLensStrategy';
 /**
@@ -16,6 +19,7 @@ let sessionOrchestrator: SessionOrchestrator | undefined;
 let annotationsProvider: AnnotationsProvider;
 let llmFilterService: LLMFilterService | undefined;
 let fullTraceHoverProvider: FullTraceHoverProvider | undefined;
+let pbTraceCodeLensProvider: PbTraceCodeLensProvider | undefined;
 /**
  * Called when the extension is activated.
  * 
@@ -26,6 +30,14 @@ let fullTraceHoverProvider: FullTraceHoverProvider | undefined;
  * 
  * @param context - Extension context provided by VS Code
  */
+function escapeHtml(text: string): string {
+	return text
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;');
+}
+
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Function Annotations extension is now active!');
 	
@@ -38,10 +50,30 @@ export function activate(context: vscode.ExtensionContext) {
 	// console.log('CodeLens strategy has been activated');
 
 	traceManager = new TraceManager();
-	sessionOrchestrator = new SessionOrchestrator(traceManager, context);
+
+	// Initialize LLM service if API key is configured
+	const config = vscode.workspace.getConfiguration('pbExtension');
+	const apiKey = config.get<string>('openaiApiKey', '');
+	if (apiKey.trim().length > 0) {
+		llmFilterService = new LLMFilterService(apiKey);
+	} else {
+		vscode.window.showWarningMessage(
+			'PB Extension: OpenAI API key not configured. LLM features disabled.'
+		);
+	}
+
+	annotationsProvider = new AnnotationsProvider(traceManager, llmFilterService);
+
+	pbTraceCodeLensProvider = new PbTraceCodeLensProvider(traceManager);
+	context.subscriptions.push(
+		vscode.languages.registerCodeLensProvider({ language: 'python' }, pbTraceCodeLensProvider)
+	);
+
+	sessionOrchestrator = new SessionOrchestrator(traceManager, context, (filePath) => {
+		void refreshTraceDisplay(traceManager, annotationsProvider, pbTraceCodeLensProvider, filePath);
+	});
 	context.subscriptions.push(sessionOrchestrator);
 
-	// Attach-tracing commands (also registered in SessionOrchestrator; listed here for discoverability)
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pbExtension.startAttachedTracing', () => {
 			void sessionOrchestrator?.startAttachedTracing();
@@ -55,22 +87,53 @@ export function activate(context: vscode.ExtensionContext) {
 			} else {
 				void sessionOrchestrator?.startAttachedTracing();
 			}
-		})
+		}),
+		vscode.commands.registerCommand('pbExtension.debugPythonFileWithTracing', () => {
+			void sessionOrchestrator?.debugCurrentPythonFileWithTracing();
+		}),
+		vscode.commands.registerCommand(
+			'pbExtension.showLineTrace',
+			async (documentUri: string, lineNumber: number) => {
+				const uri = vscode.Uri.parse(documentUri);
+				const variables = traceManager.getLatestForFileLine(uri.fsPath, lineNumber);
+				if (variables.length === 0) {
+					void vscode.window.showInformationMessage(`No PB trace on line ${lineNumber}.`);
+					return;
+				}
+
+				const items = variables.map((variable) => ({
+					label: variable.name,
+					description: variable.value.length > 80 ? `${variable.value.slice(0, 79)}…` : variable.value,
+					detail: variable.type
+				}));
+
+				const rows = variables
+					.map(
+						(v) =>
+							`<tr><td><code>${escapeHtml(v.name)}</code></td><td>${escapeHtml(v.value)}</td><td><em>${escapeHtml(v.type)}</em></td></tr>`
+					)
+					.join('');
+				const panel = vscode.window.createWebviewPanel(
+					'pbLineTrace',
+					`PB trace — line ${lineNumber}`,
+					vscode.ViewColumn.Beside,
+					{ enableScripts: false }
+				);
+				panel.webview.html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
+<body style="font-family: var(--vscode-font-family); color: var(--vscode-editor-foreground); background: var(--vscode-editor-background); padding: 1rem;">
+<h2>PB trace — line ${lineNumber}</h2>
+<table border="1" cellpadding="6" style="border-collapse: collapse; width: 100%;">
+<thead><tr><th>Variable</th><th>Value</th><th>Type</th></tr></thead>
+<tbody>${rows}</tbody></table>
+</body></html>`;
+
+				await vscode.window.showQuickPick(items, {
+					title: `PB full trace — line ${lineNumber}`,
+					placeHolder: 'Captured variables (also opened in panel)'
+				});
+			}
+		)
 	);
-
-	// Initialize LLM service if API key is configured
-	const config = vscode.workspace.getConfiguration('pbExtension');
-	const apiKey = config.get<string>('openaiApiKey', '');
-	if (apiKey.trim().length > 0) {
-		llmFilterService = new LLMFilterService(apiKey);
-	} else {
-		vscode.window.showWarningMessage(
-			'PB Extension: OpenAI API key not configured. LLM features disabled.'
-		);
-	}
-
-	// Create providers (AnnotationsProvider receives LLM service for filtering)
-	annotationsProvider = new AnnotationsProvider(traceManager, llmFilterService);
 
 	fullTraceHoverProvider = new FullTraceHoverProvider(traceManager);
 	const hoverDisposable = vscode.languages.registerHoverProvider(
@@ -117,7 +180,7 @@ export function activate(context: vscode.ExtensionContext) {
 			const { DebugExecutor } = require('./execution/DebugExecutor');
 			
 			// Create Python executor
-			const executor = new DebugExecutor('python', 'python', traceManager);
+			const executor = new DebugExecutor('python', getPythonDebugAdapterType(), traceManager);
 			
 			if (!executor.canExecute(filePath)) {
 				vscode.window.showErrorMessage('Cannot execute this file type');
@@ -132,7 +195,12 @@ export function activate(context: vscode.ExtensionContext) {
 				traceManager.setTrace(trace);
 				console.log('[Extension] Trace loaded into TraceManager');
 
-				await annotationsProvider.applyAnnotations(editor);
+				await refreshTraceDisplay(
+					traceManager,
+					annotationsProvider,
+					pbTraceCodeLensProvider,
+					filePath
+				);
 
 				// convert trace to JSON-serializable format
 				const serializedTrace = DebugExecutor.traceToJSON(trace);
@@ -185,8 +253,12 @@ export function activate(context: vscode.ExtensionContext) {
 
 			const editor = vscode.window.activeTextEditor;
 			if (editor) {
-				traceManager.setActiveFilePath(editor.document.uri.fsPath);
-				await annotationsProvider.applyAnnotations(editor);
+				await refreshTraceDisplay(
+					traceManager,
+					annotationsProvider,
+					pbTraceCodeLensProvider,
+					editor.document.uri.fsPath
+				);
 			}
 		}
 	);

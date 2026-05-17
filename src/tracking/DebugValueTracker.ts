@@ -39,8 +39,12 @@ export class DebugValueTracker implements IValueTracker {
         console.log(`[DebugValueTracker] Created for session ${sessionId}`);
     }
 
-    public startTracking(session: vscode.DebugSession): void {
+    public bindDebugSession(session: vscode.DebugSession): void {
         this.currentSession = session;
+    }
+
+    public startTracking(session: vscode.DebugSession): void {
+        this.bindDebugSession(session);
         this.isTracking = true;
 
         const disposable = vscode.debug.onDidReceiveDebugSessionCustomEvent((event) => {
@@ -136,7 +140,7 @@ export class DebugValueTracker implements IValueTracker {
         return variables;
     }
 
-    private async captureFromThread(threadId: number): Promise<void> {
+    public async captureFromThread(threadId: number): Promise<void> {
         const stackFrames = await this.getStackFrames(threadId);
         if (stackFrames.length === 0) {
             return;

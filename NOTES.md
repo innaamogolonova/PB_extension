@@ -56,7 +56,8 @@ Stick to domains with non-obvious intermediate state and multi-step logic:
 - key bind commands to have a better workflow 
 - language agnostic 
 - some kind of developer control -> setting relevant values for the LLM to always display, manually adding otehr breakpoints, etc. 
-- LLM first pass to detect critical lines 
+- critical points: change to AST first, then LLM first pass to detect critical lines 
+- the breakpoints might be confused with the breakpoints in an actual debugger? -> need to have a better flow and have it be less of a debugger
 
 ### Nice to Have 
 - hypothesis -> developer is able to rpovide some hypothesis/guide for LLM to judge relevance 

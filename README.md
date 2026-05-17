@@ -28,7 +28,29 @@ Help programmers understand code by showing runtime values at meaningful places,
 
 3. `npm install` from root (vulnerabilities might show up, ignore warnings for now)
 4. `npm run compile` from root
-5. F5 to launch extension
+5. F5 to launch extension (main window — launches **Extension Development Host**)
+
+### Attach tracing (Phases 1–3)
+
+Work in the **Extension Development Host** window (not the main repo window).
+
+1. Install **Python** and **Python Debugger** extensions in that window if prompted.
+2. Open `tests/web_app/services.py` (has heuristic `return` / call lines).
+3. Command Palette → **PB Extension: Debug Python File with Tracing** (recommended),  
+   *or* **Start Tracing** then Run and Debug → **Python: Current File** → F5.  
+   Do **not** use F5 with **Run Extension** selected — that relaunches the extension, not Python.
+4. View logs: **Output** panel → **PB Extension**.
+
+### Reading trace UI (after a run)
+
+| UI | What it shows |
+|----|----------------|
+| **Ghost text** `⟨PB⟩ name=value…` at end of line | LLM-filtered snapshot (falls back to raw vars if LLM returns nothing) |
+| **CodeLens** above captured lines | `PB: … — click for full trace` → table + quick pick |
+| **Hover** (when not debugging) | Markdown table of all captured variables |
+| **While paused on a breakpoint** | Debugger hover shows Python internals — use **CodeLens** for PB trace instead |
+
+Enable **CodeLens** in the editor if you do not see links above lines: Command Palette → "Preferences: Open Settings" → search `code lens` → ensure Code Lens is on.
 
 ## Expected Behavior
 

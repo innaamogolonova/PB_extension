@@ -4,6 +4,11 @@ import { PbCaptureMode } from './types';
 const CAPTURE_MODE_KEY = 'captureMode';
 const DEFAULT_CAPTURE_MODE: PbCaptureMode = 'exhaustive-step';
 
+/** Modern VS Code Python debugging uses debugpy; legacy configs use python. */
+export function getPythonDebugAdapterType(): string {
+    return 'debugpy';
+}
+
 /**
  * How PB collects runtime snapshots from the debugger.
  * Phase 0: read-only; execution still uses exhaustive-step regardless of value

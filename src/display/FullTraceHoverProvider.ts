@@ -1,18 +1,19 @@
 import * as vscode from 'vscode';
 import { TraceManager } from '../tracking/TraceManager';
+import { formatTraceHoverMarkdown } from './formatTraceMarkdown';
 
 export class FullTraceHoverProvider implements vscode.HoverProvider {
-    private traceManager: TraceManager;
+    private readonly traceManager: TraceManager;
 
     constructor(traceManager: TraceManager) {
         this.traceManager = traceManager;
     }
 
-    public async provideHover(
+    public provideHover(
         document: vscode.TextDocument,
         position: vscode.Position,
         _token: vscode.CancellationToken
-    ): Promise<vscode.Hover | undefined> {
+    ): vscode.Hover | undefined {
         this.traceManager.setActiveFilePath(document.uri.fsPath);
         const lineNumber = position.line + 1;
         const allVariables = this.traceManager.getLatestForFileLine(document.uri.fsPath, lineNumber);
@@ -21,16 +22,12 @@ export class FullTraceHoverProvider implements vscode.HoverProvider {
             return undefined;
         }
 
-        const markdown = new vscode.MarkdownString();
-        markdown.appendMarkdown('**Full Trace Variables**\n\n');
+        const markdown = formatTraceHoverMarkdown(lineNumber, allVariables, {
+            hint:
+                'While debugging, the debugger hover may appear first — use CodeLens "PB trace" above the line, or stop debugging to see this hover.'
+        });
 
-        for (const variable of allVariables) {
-            markdown.appendMarkdown(`- \`${variable.name}\`: **${variable.value}** _(${variable.type})_\n`);
-        }
-
-        markdown.appendMarkdown('\n---\n');
-        markdown.appendMarkdown(`_Showing ${allVariables.length} variable${allVariables.length === 1 ? '' : 's'}_`);
-
-        return new vscode.Hover(markdown);
+        const lineRange = document.lineAt(position.line).range;
+        return new vscode.Hover(markdown, lineRange);
     }
 }

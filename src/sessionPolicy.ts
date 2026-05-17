@@ -3,8 +3,8 @@ import * as vscode from 'vscode';
 import { getCaptureMode } from './config';
 import { PbCaptureMode, PbSessionPolicy, PbSessionRole } from './types';
 
-/** Debug adapters PB may attach to (MVP: Python only). */
-export const PB_SUPPORTED_DEBUG_TYPES = ['python'] as const;
+/** Debug adapters PB may attach to (python = legacy, debugpy = current). */
+export const PB_SUPPORTED_DEBUG_TYPES = ['python', 'debugpy'] as const;
 
 const ownedDebugSessionIds = new Set<string>();
 
@@ -51,6 +51,30 @@ export function shouldObserveSession(
         return false;
     }
     return isSessionInWorkspace(session);
+}
+
+/** Human-readable reason when an observed session is not handled (for diagnostics). */
+export function getSessionIgnoreReason(
+    session: vscode.DebugSession,
+    tracingEnabled: boolean
+): string | undefined {
+    if (!tracingEnabled) {
+        return 'PB tracing is off. Run "PB Extension: Start Tracing" or "Debug Python File with Tracing" first.';
+    }
+    if (isOwnedDebugSession(session.id)) {
+        return 'Session owned by Test Debug Executor (not attach mode).';
+    }
+    if (!isSupportedDebugType(session.type)) {
+        return (
+            `Unsupported debug type "${session.type}". ` +
+            'F5 may be running "Run Extension" instead of a Python config. ' +
+            'Use Run and Debug → "Python: Current File", or command "PB Extension: Debug Python File with Tracing".'
+        );
+    }
+    if (!isSessionInWorkspace(session)) {
+        return 'Debug program is outside the open workspace folder.';
+    }
+    return undefined;
 }
 
 export function createPbSessionPolicy(
