@@ -9,12 +9,7 @@ import { getPythonDebugAdapterType } from './config';
 import { refreshTraceDisplay } from './display/refreshTraceDisplay';
 import { SessionOrchestrator } from './orchestration/SessionOrchestrator';
 import { astCaptureSiteProvider } from './analysis/AstCaptureSiteProvider';
-// import { CodeLensStrategy } from './display/CodeLensStrategy';
-/**
- * The display strategy instance.
- * Stored at module level so it's accessible in both activate and deactivate.
- */
-// let strategy: CodeLensStrategy | undefined;
+
 let traceManager: TraceManager;
 let sessionOrchestrator: SessionOrchestrator | undefined;
 let annotationsProvider: AnnotationsProvider;
@@ -41,14 +36,6 @@ function escapeHtml(text: string): string {
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Function Annotations extension is now active!');
-	
-	// // Create the CodeLens strategy
-	// strategy = new CodeLensStrategy();
-	
-	// // Activate it (registers providers, commands, etc.)
-	// strategy.activate(context);
-	
-	// console.log('CodeLens strategy has been activated');
 
 	traceManager = new TraceManager();
 	astCaptureSiteProvider.initialize(context);
@@ -355,13 +342,7 @@ export function activate(context: vscode.ExtensionContext) {
  */
 export function deactivate() {
 	console.log('Function Annotations extension is deactivating');
-	
-	// // Deactivate the strategy (cleans up providers, commands, webviews, etc.)
-	// if (strategy) {
-	// 	strategy.deactivate();
-	// 	strategy = undefined;
-	// }
-	
+
 	if (annotationsProvider) {
 		annotationsProvider.dispose();
 	}

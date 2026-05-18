@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { CaptureSite, SiteKind } from './captureSites';
+import { CaptureSite } from './captureSites';
 
 /**
  * Legacy regex detector (Phase 2). Used as fallback when AST parse fails or config is regex-only.
@@ -26,8 +26,4 @@ export function detectRegexCaptureSites(document: vscode.TextDocument): CaptureS
     }
 
     return sites;
-}
-
-export function detectRegexCriticalLines(document: vscode.TextDocument): number[] {
-    return detectRegexCaptureSites(document).map((s) => s.line);
 }
