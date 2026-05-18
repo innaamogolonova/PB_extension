@@ -21,8 +21,13 @@
         "category": "PB Extension"
       },
       {
-        "command": "pbExtension.testDebugExecutor",
-        "title": "Test Debug Executor",
+        "command": "pbExtension.runPb",
+        "title": "Run PB",
+        "category": "PB Extension"
+      },
+      {
+        "command": "pbExtension.runPbExhaustive",
+        "title": "Exhaustive Trace",
         "category": "PB Extension"
       },
       {
@@ -48,11 +53,6 @@
       {
         "command": "pbExtension.toggleAttachedTracing",
         "title": "Toggle Attach Tracing",
-        "category": "PB Extension"
-      },
-      {
-        "command": "pbExtension.debugPythonFileWithTracing",
-        "title": "Debug Python File with Tracing",
         "category": "PB Extension"
       },
       {
@@ -87,8 +87,8 @@
             "exhaustive-step",
             "breakpoint-continue"
           ],
-          "default": "exhaustive-step",
-          "description": "How PB collects traces from the debugger. exhaustive-step: step through lines (current). breakpoint-continue: capture at breakpoints only (planned)."
+          "default": "breakpoint-continue",
+          "description": "How PB collects traces. breakpoint-continue (default): AST/heuristic breakpoints + capture. exhaustive-step: step through every line (use command palette Exhaustive Trace to run without changing this setting)."
         },
         "pbExtension.captureSiteDetector": {
           "type": "string",

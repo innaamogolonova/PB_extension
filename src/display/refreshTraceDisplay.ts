@@ -37,6 +37,7 @@ export async function refreshTraceDisplay(
         }
     }
 
+    traceManager.pinActiveSessionForFile(normalized);
     traceManager.setActiveFilePath(normalized);
     codeLensProvider?.refresh();
     await annotationsProvider.applyAnnotations(editor);

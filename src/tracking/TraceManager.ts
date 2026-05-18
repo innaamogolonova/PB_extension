@@ -122,6 +122,63 @@ export class TraceManager {
     }
 
     public getLatestForFileLine(filePath: string, lineNumber: number, sessionId?: string): VariableInfo[] {
+        if (sessionId) {
+            return this.readLatestFromSession(filePath, lineNumber, sessionId);
+        }
+
+        const active = this.resolveSession();
+        if (active) {
+            const fromActive = this.readLatestFromSession(filePath, lineNumber, active.sessionId);
+            if (fromActive.length > 0) {
+                return fromActive;
+            }
+        }
+
+        return this.readLatestAcrossSessions(filePath, lineNumber);
+    }
+
+    /**
+     * Prefer the session with the most captures for this file (fixes hover after a newer empty session exists).
+     */
+    public pinActiveSessionForFile(filePath: string): string | undefined {
+        const best = this.findBestSessionForFile(filePath);
+        if (!best) {
+            return undefined;
+        }
+        this.activeSessionId = best.sessionId;
+        this.activeFilePath = normalizeSourcePath(filePath);
+        return best.sessionId;
+    }
+
+    public findBestSessionForFile(filePath: string): TraceSession | undefined {
+        let best: { session: TraceSession; score: number; capturedAt: number } | undefined;
+
+        for (const session of this.sessions.values()) {
+            const fileTrace = this.findFileTrace(filePath, session.sessionId);
+            if (!fileTrace || fileTrace.lineStates.size === 0) {
+                continue;
+            }
+
+            const score = fileTrace.lineStates.size;
+            const capturedAt = fileTrace.capturedAt;
+
+            if (
+                !best ||
+                score > best.score ||
+                (score === best.score && capturedAt > best.capturedAt)
+            ) {
+                best = { session, score, capturedAt };
+            }
+        }
+
+        return best?.session;
+    }
+
+    private readLatestFromSession(
+        filePath: string,
+        lineNumber: number,
+        sessionId: string
+    ): VariableInfo[] {
         const fileTrace = this.findFileTrace(filePath, sessionId);
         if (!fileTrace) {
             return [];
@@ -133,6 +190,33 @@ export class TraceManager {
         }
 
         return states[states.length - 1].variables;
+    }
+
+    private readLatestAcrossSessions(filePath: string, lineNumber: number): VariableInfo[] {
+        let bestVars: VariableInfo[] = [];
+        let bestTimestamp = -1;
+
+        for (const session of this.sessions.values()) {
+            const fileTrace = this.findFileTrace(filePath, session.sessionId);
+            if (!fileTrace) {
+                continue;
+            }
+
+            const states = fileTrace.lineStates.get(lineNumber);
+            if (!states || states.length === 0) {
+                continue;
+            }
+
+            const last = states[states.length - 1];
+            if (last.timestamp >= bestTimestamp) {
+                bestTimestamp = last.timestamp;
+                bestVars = last.variables;
+                this.activeSessionId = session.sessionId;
+                this.activeFilePath = fileTrace.filePath;
+            }
+        }
+
+        return bestVars;
     }
 
     public getFileTrace(filePath: string, sessionId?: string): FileTrace | undefined {

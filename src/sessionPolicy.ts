@@ -62,7 +62,7 @@ export function getSessionIgnoreReason(
         return 'PB tracing is off. Run "PB Extension: Start Tracing" or "Debug Python File with Tracing" first.';
     }
     if (isOwnedDebugSession(session.id)) {
-        return 'Session owned by Test Debug Executor (not attach mode).';
+        return 'Session owned by PB Run (exhaustive mode; orchestrator does not attach).';
     }
     if (!isSupportedDebugType(session.type)) {
         return (

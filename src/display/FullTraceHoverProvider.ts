@@ -13,18 +13,21 @@ export class FullTraceHoverProvider implements vscode.HoverProvider {
         document: vscode.TextDocument,
         position: vscode.Position,
         _token: vscode.CancellationToken
-    ): vscode.Hover | undefined {
-        this.traceManager.setActiveFilePath(document.uri.fsPath);
+    ): vscode.ProviderResult<vscode.Hover> {
+        const filePath = document.uri.fsPath;
+        this.traceManager.pinActiveSessionForFile(filePath);
         const lineNumber = position.line + 1;
-        const allVariables = this.traceManager.getLatestForFileLine(document.uri.fsPath, lineNumber);
+        const allVariables = this.traceManager.getLatestForFileLine(filePath, lineNumber);
 
         if (allVariables.length === 0) {
             return undefined;
         }
 
+        const debugging = vscode.debug.activeDebugSession !== undefined;
         const markdown = formatTraceHoverMarkdown(lineNumber, allVariables, {
-            hint:
-                'While debugging, the debugger hover may appear first — use CodeLens "PB trace" above the line, or stop debugging to see this hover.'
+            hint: debugging
+                ? 'Debugger hover may cover this — stop debugging or use CodeLens "PB trace" on the line.'
+                : undefined
         });
 
         const lineRange = document.lineAt(position.line).range;

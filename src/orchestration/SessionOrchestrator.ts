@@ -77,7 +77,7 @@ export class SessionOrchestrator implements vscode.Disposable {
         this.updateStatusBar();
 
         vscode.window.showInformationMessage(
-            'PB tracing on. Open a .py file, pick "Python: Current File" in Run and Debug, then F5 — or run "PB Extension: Debug Python File with Tracing".'
+            'PB tracing on. Open a .py file and run "PB: Run PB", or F5 with Python: Current File.'
         );
         pbLog('Attach tracing enabled.');
 
@@ -90,6 +90,11 @@ export class SessionOrchestrator implements vscode.Disposable {
     /**
      * Reliable attach path: enable tracing and start a Python debug session for the active editor.
      */
+    /** Primary Run PB entry (breakpoint-continue via attach orchestrator). */
+    public async runPbDebugCurrentFile(): Promise<void> {
+        await this.debugCurrentPythonFileWithTracing();
+    }
+
     public async debugCurrentPythonFileWithTracing(): Promise<void> {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
@@ -367,7 +372,7 @@ export class SessionOrchestrator implements vscode.Disposable {
 
             if (sites.length === 0) {
                 const warn =
-                    'No heuristic capture lines found (need return or x = foo(...) lines). Try tests/web_app/services.py.';
+                    'No capture sites found (AST: return, assign, if/elif, raise, loops). Try tests/web_app/services.py.';
                 pbLog(warn);
                 void vscode.window.showWarningMessage(`PB: ${warn}`);
             } else {
@@ -392,6 +397,12 @@ export class SessionOrchestrator implements vscode.Disposable {
             const lineCount = entryPoint
                 ? this.traceManager.getTracedLineNumbers(entryPoint).length
                 : 0;
+            this.traceManager.setActiveSession(pbSession.traceSessionId);
+            if (entryPoint) {
+                this.traceManager.setActiveFilePath(entryPoint);
+                this.traceManager.pinActiveSessionForFile(entryPoint);
+            }
+
             pbSession.finalize({ success: true });
             this.activePbSessions.delete(session.id);
             pbLog(`Observed trace finalized: debugId=${session.id} (${lineCount} line(s) with captures)`);
