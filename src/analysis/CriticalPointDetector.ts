@@ -1,27 +1,20 @@
-// Limitations: only for Python, regex based for now 
-// TODO: add more patterns (maybe), make it smarter (e.g. use AST parsing instead of regex), support more languages
-
 import * as vscode from 'vscode';
-
+import { astCaptureSiteProvider } from './AstCaptureSiteProvider';
+import { CaptureSite, sitesToLines } from './captureSites';
+/**
+ * Capture-site detection for Python (Phase 3.5: AST with regex fallback).
+ */
 export class CriticalPointDetector {
-    public detectCriticalLines(document: vscode.TextDocument): number[] {
-        const criticalLines: number[] = [];
-
-        for (let i = 0; i < document.lineCount; i++) {
-            const lineText = document.lineAt(i).text.trim();
-
-            if (/^#/.test(lineText)) {
-                continue;
-            }
-
-            if (
-                /^return(\s+|$)/.test(lineText) ||
-                /^\w+\s*=\s*\w+\(/.test(lineText)
-            ) {
-                criticalLines.push(i + 1);
-            }
+    public async detectCaptureSites(document: vscode.TextDocument): Promise<CaptureSite[]> {
+        if (document.languageId !== 'python' && !document.uri.fsPath.endsWith('.py')) {
+            return [];
         }
 
-        return criticalLines;
+        return astCaptureSiteProvider.detectCaptureSites(document);
+    }
+
+    public async detectCriticalLines(document: vscode.TextDocument): Promise<number[]> {
+        const sites = await this.detectCaptureSites(document);
+        return sitesToLines(sites);
     }
 }

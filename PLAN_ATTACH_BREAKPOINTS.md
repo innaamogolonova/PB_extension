@@ -9,7 +9,8 @@ Detailed, modular plan for the attach + heuristic-breakpoint pivot, aligned with
 | Term | Meaning |
 |------|---------|
 | **Attach mode** | Extension listens to **existing** VS Code debug sessions; does not rely on a `stepIn` loop for capture. |
-| **Capture site** | A source line where the extension sets a breakpoint (heuristic now; LLM or AST later). |
+| **Capture site** | A source line where the extension sets a breakpoint (regex heuristic today; AST in Phase 3.5; LLM later). |
+| **Site kind** | AST-derived label for why a line was chosen (`return`, `assign`, `if`, `raise`, `loop`, …). |
 | **Snapshot** | Full locals (current `appendState` shape) at that line when the debugger stops. |
 | **Full trace** | For each **captured** line: stored locals + history policy; hover = full; inline = LLM subset. |
 | **Default path** | `continue` between stops; **no** instruction stepping. |
@@ -23,6 +24,7 @@ Detailed, modular plan for the attach + heuristic-breakpoint pivot, aligned with
 │ M1 SessionOrchestrator    attach / own-session policy    │
 ├─────────────────────────────────────────────────────────┤
 │ M2 BreakpointPlanner      URIs + lines → DAP breakpoints │
+│ M2a AstSiteDetector       AST walk → capture sites (3.5) │
 ├─────────────────────────────────────────────────────────┤
 │ M3 CaptureEngine          stopped → captureFromThread      │
 ├─────────────────────────────────────────────────────────┤
@@ -99,6 +101,42 @@ Dependencies: **M1 → M2 → M3 → M4**; **M5** reads **M4** only.
 
 ---
 
+## Phase 3.5 — AST capture-site detection (M2a)
+
+**Goals:** Replace regex line matching in `CriticalPointDetector` with a Python `ast` visitor that emits stable 1-based line numbers. **M3–M5 unchanged** — only the line set fed into `BreakpointPlanner` changes.
+
+**Site kinds (v1 policy):**
+
+| Kind | AST nodes | Line to breakpoint | Notes |
+|------|-----------|-------------------|--------|
+| **return** | `Return` | `node.lineno` | Includes `return` with value and bare `return`. |
+| **assign** | `Assign`, `AnnAssign`, `AugAssign` | `node.lineno` | All binding updates (not only `x = foo(...)`). Skip assign to `_` / discard. |
+| **if** | `If` | `node.lineno` | Line of `if test:` (decision head). |
+| **elif** | `If` inside `orelse` chain | `node.lineno` | Each `elif` test line in an if-ladder. |
+| **raise** | `Raise` | `node.lineno` | Explicit and reraise (`raise e`). |
+| **loop** | `For`, `AsyncFor`, `While`, `AsyncWhile` | `node.lineno` | Header line only (`for …`, `while …`). Optional cap — see **3.5.6**. |
+
+**Explicitly out of scope for v1:** `Import`, `Pass`, `Expr` (bare calls e.g. `append`), `Try`/`Except`, `With`, `Await`, decorators, function/class defs. Add in a later sub-phase if needed.
+
+| Module | Tasks |
+|--------|-------|
+| **3.5.1 Site model** | Introduce `CaptureSite { line: number; kind: SiteKind; score?: number }` and `SiteKind` union. `CriticalPointDetector.detectCriticalLines()` becomes a thin wrapper: `sites.map(s => s.line)` deduped + sorted. |
+| **3.5.2 Python AST visitor** | Add `scripts/detect_capture_sites.py` (or `python/ast_detector.py`): read file path or stdin content → JSON array of `{ line, kind }`. Visitor registers one site per matching node; use `node.lineno` (1-based). Handle `elif` by walking `If.orelse` (nested `If` nodes). |
+| **3.5.3 TS bridge** | `AstCaptureSiteProvider` in `src/analysis/`: spawn `python3 scripts/detect_capture_sites.py <path>` (configurable interpreter via `pbExtension.pythonInterpreter`). Timeout + stderr → log to PB output channel. |
+| **3.5.4 Parse failure fallback** | On `SyntaxError` / nonzero exit / timeout: fall back to current regex rules in `CriticalPointDetector` (log once per file). Never block trace start. |
+| **3.5.5 Caching** | Cache results per `(normalizedPath, mtimeMs, policyVersion)` in memory; invalidate on `onDidSaveTextDocument` / buffer change for that URI. |
+| **3.5.6 Loop budget** | Loops can flood breakpoints. Default: include all loop headers; add `pbExtension.maxLoopCaptureSitesPerFile` (e.g. 5) — when exceeded, keep highest-priority kinds first (`return` > `raise` > `if` > `assign` > `loop`) or skip lowest-scored loops. Document default. |
+| **3.5.7 Config** | `pbExtension.captureSiteDetector`: `regex` \| `ast` \| `ast-with-regex-fallback` (default: `ast-with-regex-fallback`). Optional `pbExtension.captureSitePolicy` for future toggles per kind. |
+| **3.5.8 Planner integration** | `BreakpointPlanner.planSites()` calls detector only; no changes to `captureSiteKey`, DAP breakpoints, or `BreakpointCaptureEngine` identity checks. Log `BreakpointPlanner: N site(s) [ast]` with kind breakdown in PB channel. |
+| **3.5.9 Tests** | Golden tests: `tests/web_app/services.py` → expected lines for each kind; broken `.py` → fallback lines; `if`/`elif` ladder file; nested loops respect cap. Run detector script in CI (Python 3.10+). |
+| **3.5.10 Display alignment** | `AnnotationsProvider` uses same detector API so ghost-text eligibility matches breakpoint set (avoid decorating lines with no BP). |
+
+**Exit:** With `captureSiteDetector=ast`, debugging `tests/web_app/services.py` sets breakpoints on `if not product:`, `raise`, `subtotal = …`, loop headers, and `return` — not only `return` and `name = call(...)`. Regex path still works when AST disabled or parse fails.
+
+**Dependency:** Phase 2 complete (planner consumes line list). Safe to ship before or after Phase 4; does not require stepping retirement.
+
+---
+
 ## Phase 4 — Retire default stepping loop (integration)
 
 **Goals:** `DebugExecutor` default becomes breakpoint-driven when orchestrator runs owned launches too.
@@ -146,7 +184,7 @@ Dependencies: **M1 → M2 → M3 → M4**; **M5** reads **M4** only.
 | **Multi-file** | Already in `TraceManager`; verify breakpoints across packages under workspace. |
 | **Performance** | Cap files scanned for breakpoints; exclude globs (`**/node_modules/**`, `**/.venv/**`). |
 | **Tests** | Manual checklist in `tests_web_app` README; optional integration test with mocked DAP if feasible later. |
-| **Future** | Swap **M2** heuristic list for LLM/AST line picker without touching **M3–M5**. |
+| **Future** | Layer LLM rerank on top of **M2a** AST candidates without touching **M3–M5**. |
 
 ---
 
@@ -157,6 +195,7 @@ Dependencies: **M1 → M2 → M3 → M4**; **M5** reads **M4** only.
 | **M1** | 0–1 | Attach lifecycle + trace session create/finalize |
 | **M2** | 2 | Heuristic breakpoints appear/disappear cleanly |
 | **M3** | 3 | Capture + continue works end-to-end |
+| **M3a** | 3.5 | AST capture-site detection (return, assign, if/elif, raise, loops) |
 | **M4** | 4 | No default `stepIn`; legacy mode preserved |
 | **M5** | 5–6 | UX + staleness |
 
@@ -169,7 +208,10 @@ Dependencies: **M1 → M2 → M3 → M4**; **M5** reads **M4** only.
 | Breakpoints slow user debugging | PB-toggle off by default; scoped breakpoints; remove on terminate |
 | Wrong session captured | Strict filter + explicit “start tracing” |
 | `continue` drops missed captures | Serialize stop handling; log errors |
-| Flask/server never hits heuristic lines | Widen detector or add manual “also trace these files” config later |
+| Flask/server never hits heuristic lines | AST + loop/if coverage; widen policy or manual “also trace these files” config later |
+| Too many loop breakpoints | Per-file loop cap + kind priority (**3.5.6**) |
+| AST subprocess missing / wrong Python | Configurable interpreter; regex fallback (**3.5.4**) |
+| Parse errors while editing | Fallback per file; refresh cache on save |
 
 ---
 

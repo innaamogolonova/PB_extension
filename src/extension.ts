@@ -8,6 +8,7 @@ import { PbTraceCodeLensProvider } from './display/PbTraceCodeLensProvider';
 import { getPythonDebugAdapterType } from './config';
 import { refreshTraceDisplay } from './display/refreshTraceDisplay';
 import { SessionOrchestrator } from './orchestration/SessionOrchestrator';
+import { astCaptureSiteProvider } from './analysis/AstCaptureSiteProvider';
 // import { CodeLensStrategy } from './display/CodeLensStrategy';
 /**
  * The display strategy instance.
@@ -50,6 +51,7 @@ export function activate(context: vscode.ExtensionContext) {
 	// console.log('CodeLens strategy has been activated');
 
 	traceManager = new TraceManager();
+	astCaptureSiteProvider.initialize(context);
 
 	// Initialize LLM service if API key is configured
 	const config = vscode.workspace.getConfiguration('pbExtension');

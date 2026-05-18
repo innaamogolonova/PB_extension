@@ -42,7 +42,7 @@ export class AnnotationsProvider {
         const llmEnabled = config.get<boolean>('llmFilteringEnabled', true) && !!this.llmService;
 
         const tracedLines = this.traceManager.getTracedLineNumbers(filePath);
-        const criticalLines = this.criticalPointDetector.detectCriticalLines(editor.document);
+        const criticalLines = await this.criticalPointDetector.detectCriticalLines(editor.document);
         const linesToDecorate = Array.from(new Set([...tracedLines, ...criticalLines])).sort(
             (a, b) => a - b
         );

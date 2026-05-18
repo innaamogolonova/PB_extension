@@ -1,6 +1,8 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { CriticalPointDetector } from '../analysis/CriticalPointDetector';
+import { CaptureSite, formatKindBreakdown } from '../analysis/captureSites';
+import { getCaptureSiteDetectorMode } from '../config';
 import { pbLog } from '../pbOutput';
 import { captureSiteKey, isExcludedTracePath, normalizeSourcePath } from './pathUtils';
 
@@ -29,6 +31,7 @@ export class BreakpointPlanner implements vscode.Disposable {
         const sites: PlannedCaptureSite[] = [];
         const seenKeys = new Set<string>();
         const filePaths = this.collectFilePaths(entryPoint);
+        const allCaptureSites: CaptureSite[] = [];
 
         for (const filePath of filePaths) {
             if (isExcludedTracePath(filePath)) {
@@ -40,10 +43,12 @@ export class BreakpointPlanner implements vscode.Disposable {
                 continue;
             }
 
-            const lines = this.detector.detectCriticalLines(document);
+            const captureSites = await this.detector.detectCaptureSites(document);
+            allCaptureSites.push(...captureSites);
             const uri = vscode.Uri.file(normalizeSourcePath(filePath));
 
-            for (const line of lines) {
+            for (const site of captureSites) {
+                const line = site.line;
                 const key = captureSiteKey(filePath, line);
                 if (seenKeys.has(key)) {
                     continue;
@@ -54,7 +59,13 @@ export class BreakpointPlanner implements vscode.Disposable {
             }
         }
 
-        pbLog(`BreakpointPlanner: ${sites.length} site(s) across ${filePaths.length} file(s)`);
+        const detectorMode = getCaptureSiteDetectorMode();
+        const kindSummary =
+            allCaptureSites.length > 0 ? ` (${formatKindBreakdown(allCaptureSites)})` : '';
+
+        pbLog(
+            `BreakpointPlanner: ${sites.length} site(s) across ${filePaths.length} file(s) [${detectorMode}]${kindSummary}`
+        );
         return sites;
     }
 

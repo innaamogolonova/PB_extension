@@ -89,6 +89,27 @@
           ],
           "default": "exhaustive-step",
           "description": "How PB collects traces from the debugger. exhaustive-step: step through lines (current). breakpoint-continue: capture at breakpoints only (planned)."
+        },
+        "pbExtension.captureSiteDetector": {
+          "type": "string",
+          "enum": [
+            "regex",
+            "ast",
+            "ast-with-regex-fallback"
+          ],
+          "default": "ast-with-regex-fallback",
+          "description": "How PB chooses capture breakpoint lines. ast-with-regex-fallback: Python AST (return, assign, if/elif, raise, loops) with regex fallback on parse errors."
+        },
+        "pbExtension.pythonInterpreter": {
+          "type": "string",
+          "default": "",
+          "description": "Python executable for AST capture-site detection (e.g. python3 or /usr/bin/python3). Empty uses python3."
+        },
+        "pbExtension.maxLoopCaptureSitesPerFile": {
+          "type": "number",
+          "default": 20,
+          "minimum": 0,
+          "description": "Maximum loop-header capture sites per file (first N by line order). 0 disables loop capture sites."
         }
       }
     }
