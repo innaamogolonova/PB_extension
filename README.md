@@ -36,9 +36,7 @@ Work in the **Extension Development Host** window (not the main repo window).
 
 1. Install **Python** and **Python Debugger** extensions in that window if prompted.
 2. Open `tests/web_app/services.py` (has heuristic `return` / call lines).
-3. Command Palette → **PB Extension: Debug Python File with Tracing** (recommended),  
-   *or* **Start Tracing** then Run and Debug → **Python: Current File** → F5.  
-   Do **not** use F5 with **Run Extension** selected — that relaunches the extension, not Python.
+3. Command Palette → **PB Extension: Run PB**.
 4. View logs: **Output** panel → **PB Extension**.
 
 ### Reading trace UI (after a run)
@@ -52,7 +50,7 @@ Work in the **Extension Development Host** window (not the main repo window).
 
 Enable **CodeLens** in the editor if you do not see links above lines: Command Palette → "Preferences: Open Settings" → search `code lens` → ensure Code Lens is on.
 
-## Expected Behavior
+## Expected Behavior (old) 
 
 Pre-req: make sure that the test file is executable and correct
 

@@ -1,5 +1,148 @@
 # Project Notes 
 
+## Current State (High-Level Overview)
+
+Snapshot of **what is implemented today** (Python-only, DAP-first). 
+
+### Product in one sentence
+
+VS Code extension that attaches to Python debug sessions, captures **full locals** at AST-chosen lines, stores them in `TraceManager`, and shows **LLM-filtered ghost text** plus **full trace** on hover / CodeLens.
+
+### What works today
+
+| Area | Status |
+| --- | --- |
+| **Default capture** | `breakpoint-continue` — auto breakpoints at capture sites, capture on pause, auto-continue |
+| **Attach tracing** | `SessionOrchestrator` observes user F5 / launch.json sessions when tracing is on |
+| **Run PB** | Pre-launch breakpoints + `debugpy` session from active `.py` editor |
+| **Capture sites** | AST detector (`scripts/detect_capture_sites.py`) with regex fallback; kinds: return, assign, if, elif, raise, loop (capped) |
+| **Trace store** | `TraceManager` — multi-session, multi-file, path normalization, pin best session per file |
+| **Display** | Ghost text (`AnnotationsProvider`), hover (`FullTraceHoverProvider`), CodeLens + `showLineTrace` |
+| **LLM** | `LLMFilterService` (OpenAI `gpt-4o-mini`) — optional via settings |
+| **Exhaustive mode** | `runPbExhaustive` / `DebugExecutor` stepping loop — research / small files only |
+| **Test app** | `tests/web_app` — multi-file Flask app for boundary/decision trace exercises |
+
+### Architecture (as built)
+
+```text
+Commands (extension.ts, runPb.ts)
+        │
+        ├─► SessionOrchestrator (observed) ──► BreakpointPlanner ──► AST / regex sites
+        │         └─► BreakpointCaptureEngine ──► DebugValueTracker ──► TraceManager
+        │
+        └─► DebugExecutor (owned exhaustive / optional owned BP path)
+                  └─► BreakpointTracingRun or stepIn loop ──► TraceManager
+        │
+        ▼
+Display: refreshTraceDisplay → AnnotationsProvider + LLMFilterService + Hover + CodeLens
+```
+
+**Layers (matches plan):** M1 orchestration · M2/M2a breakpoints + AST · M3 capture engine · M4 `TraceManager` · M5 presentation.
+
+### Default user flow
+
+1. Open repo in **Extension Development Host** (F5 from extension workspace).
+2. Open a Python file (e.g. `tests/web_app/services.py`).
+3. **PB Extension: Run PB** (or enable **Start Tracing**, then F5 with **Python: Current File**).
+4. Debugger hits PB breakpoints → locals captured → session continues automatically.
+5. When the debug session ends: ghost text and CodeLens update; hover shows full locals per line.
+6. Diagnostics: **Output → PB Extension**.
+
+### Session modes
+
+| Mode | Who starts debug | Handler |
+| --- | --- | --- |
+| **Observed** | User / Run PB via orchestrator | `SessionOrchestrator` + `BreakpointCaptureEngine` |
+| **Owned** | `DebugExecutor` (exhaustive command) | Stepping loop; orchestrator skips attach |
+
+Capture engine uses a **250ms poller** plus DAP tracker fallbacks because `stopped` events are unreliable in some hosts.
+
+### Settings that matter
+
+- `pbExtension.captureMode` — `breakpoint-continue` (default) vs `exhaustive-step`
+- `pbExtension.captureSiteDetector` — `ast-with-regex-fallback` (default)
+- `pbExtension.autoContinue`, `pbExtension.llmFilteringEnabled`, `pbExtension.openaiApiKey`
+- `pbExtension.maxLoopCaptureSitesPerFile`, `pbExtension.pythonInterpreter`
+
+### Not done yet (vision vs code)
+
+- **Live refresh on edit** — `markFileStale` exists; stale UI / re-run flow incomplete
+- **LLM-chosen capture lines** — still AST/heuristic only
+- **Natural app deploy** — multi-file works for open workspace editors + entrypoint; not full “run server however you want” without debug
+- **Non-DAP backend** — documented only; no `pb_runner` / load-trace command
+- **Node / other languages** — Python only
+- **Less debugger feel** — PB breakpoints still appear in Breakpoints view; UX polish pending
+- **Stale commands in package.json** — e.g. `executeFile` not wired in `extension.ts`
+
+### Key entrypoints (code)
+
+| Concern | File |
+| --- | --- |
+| Activation / commands | `src/extension.ts` |
+| Run PB | `src/commands/runPb.ts`, `src/orchestration/SessionOrchestrator.ts` |
+| Where to break | `src/orchestration/BreakpointPlanner.ts`, `src/analysis/AstCaptureSiteProvider.ts` |
+| Capture on pause | `src/orchestration/BreakpointCaptureEngine.ts`, `src/tracking/DebugValueTracker.ts` |
+| Store | `src/tracking/TraceManager.ts` |
+| Inline + full UI | `src/display/AnnotationsProvider.ts`, `LLMFilterService.ts` |
+
+---
+
+## Contract
+
+Shared vocabulary for design, code, and docs. “Full trace” means **full locals at captured lines only** — not every executed line.
+
+### Terms
+
+| Term | Meaning |
+| --- | --- |
+| **Attach mode** | Extension listens to an **existing** VS Code debug session (F5 / `launch.json` / Run PB); default capture does **not** use a `stepIn` loop. |
+| **Capture site** | A source line where PB sets a breakpoint and may record a snapshot. Chosen by AST (+ regex fallback) today; LLM line picker later. |
+| **Site kind** | Why a line was chosen: `return`, `assign`, `if`, `elif`, `raise`, `loop` (see `src/analysis/captureSites.ts`). |
+| **Snapshot** | Full locals at a capture site when the debugger stops — stored via `TraceManager.appendState` (`VariableInfo[]` per hit). |
+| **Full trace** | For each **captured** line: complete stored locals (+ history per line if hit multiple times). **Hover** and CodeLens / `showLineTrace` = full snapshot. |
+| **Inline projection** | LLM-filtered subset of a snapshot shown as ghost text (`⟨PB⟩ …`) at end of line. |
+| **Default path** | `breakpoint-continue`: hit site → capture → **`continue`** → repeat until session ends. No instruction stepping. |
+| **Exhaustive path** | `exhaustive-step`: owned `DebugExecutor` loops `stepIn` — every stopped line can be captured; slow, for small files / research. |
+| **Observed session** | User or Run PB started debug; `SessionOrchestrator` attaches planner + capture engine. |
+| **Owned session** | `DebugExecutor` started debug (e.g. Exhaustive Trace); orchestrator does not double-attach. |
+
+### What gets stored vs shown
+
+| Layer | Content |
+| --- | --- |
+| **Capture sites** | Lines where snapshots **may** exist (AST/heuristic breakpoints). |
+| **Snapshot content** | All locals the debugger exposes at that site (filtered by tracker, not by LLM). |
+| **Store** | `TraceManager` — per session, per file, per line; latest hit used for display by default. |
+| **Inline display** | LLM subset (`LLMFilterService`); falls back to first few raw vars if LLM off or empty. |
+| **Hover / CodeLens** | Full snapshot for that line. |
+
+### Capture site policy (v1)
+
+| Kind | AST nodes (summary) | Line |
+| --- | --- | --- |
+| **return** | `Return` | `lineno` |
+| **assign** | `Assign`, `AnnAssign`, `AugAssign` (not `_` discard) | `lineno` |
+| **if** | `If` test | `lineno` |
+| **elif** | `If` in `orelse` chain | `lineno` |
+| **raise** | `Raise` | `lineno` |
+| **loop** | `For` / `While` (and async variants) header | `lineno`, capped by `maxLoopCaptureSitesPerFile` |
+
+**Out of scope for v1:** bare calls, `import`, `try`/`except`, `with`, decorators, function/class defs (may add later).
+
+### Pipeline (contract view)
+
+```text
+run / continue → hit capture-site BP → snapshot (full locals) → appendState → continue
+                                                              ↓
+                                    LLM → inline projection; hover / CodeLens → full snapshot
+```
+
+**Coverage rule:** Lines without a capture site have **no** PB trace by design — not an error.
+
+**Stepping:** Exhaustive mode is optional and non-default; product default is breakpoint + continue only.
+
+---
+
 ## Expected User Experience 
 - developer launches extension 
 - within the extension, user runs their app (using a python, node, etc command)
@@ -135,15 +278,8 @@ Non-DAP is more engineering (serialization, `locals()` copies, threads, C extens
 
 
 ## Next Steps 
-**Step 1 — Clarify the contract (on paper, then in code)**
-Write down explicitly:
 
-- Capture sites: lines where snapshots exist (heuristic → later LLM).
-- Snapshot content: all filtered locals at that site (what tracker already does).
-- Inline display: LLM subset.
-- Hover: full snapshot (already true).
-
-That makes “full trace” defensible without stepping every line.
+**Step 1 — Contract** — done; see [Contract](#contract) above.
 
 **Step 2 — DAP: attach + automatic breakpoints (not manual)**
 - User runs Python normally (F5) or one “PB run” command.
