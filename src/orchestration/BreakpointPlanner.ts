@@ -1,10 +1,5 @@
-import * as path from 'path';
 import * as vscode from 'vscode';
-import { CriticalPointDetector } from '../analysis/CriticalPointDetector';
-import { CaptureSite, formatKindBreakdown } from '../analysis/captureSites';
-import { getCaptureSiteDetectorMode } from '../config';
-import { pbLog } from '../pbOutput';
-import { captureSiteKey, isExcludedTracePath, normalizeSourcePath } from './pathUtils';
+import { captureSiteKey } from './pathUtils';
 
 export interface PlannedCaptureSite {
     uri: vscode.Uri;
@@ -13,60 +8,16 @@ export interface PlannedCaptureSite {
 }
 
 /**
- * M2 — Plans heuristic capture sites and manages PB-owned source breakpoints.
+ * Legacy helper (restored for repurposing): manages extension-owned source breakpoints.
+ *
+ * Note: the old heuristic planning logic was removed as part of the hard pivot.
  */
 export class BreakpointPlanner implements vscode.Disposable {
-    private readonly detector = new CriticalPointDetector();
     private readonly pbBreakpoints: vscode.Breakpoint[] = [];
     private readonly plannedSites = new Set<string>();
 
     public getPlannedSites(): ReadonlySet<string> {
         return this.plannedSites;
-    }
-
-    /**
-     * Entry file plus open Python editors in the workspace (skips venv/site-packages).
-     */
-    public async planSites(entryPoint: string): Promise<PlannedCaptureSite[]> {
-        const sites: PlannedCaptureSite[] = [];
-        const seenKeys = new Set<string>();
-        const filePaths = this.collectFilePaths(entryPoint);
-        const allCaptureSites: CaptureSite[] = [];
-
-        for (const filePath of filePaths) {
-            if (isExcludedTracePath(filePath)) {
-                continue;
-            }
-
-            const document = await this.loadPythonDocument(filePath);
-            if (!document) {
-                continue;
-            }
-
-            const captureSites = await this.detector.detectCaptureSites(document);
-            allCaptureSites.push(...captureSites);
-            const uri = vscode.Uri.file(normalizeSourcePath(filePath));
-
-            for (const site of captureSites) {
-                const line = site.line;
-                const key = captureSiteKey(filePath, line);
-                if (seenKeys.has(key)) {
-                    continue;
-                }
-                seenKeys.add(key);
-                this.plannedSites.add(key);
-                sites.push({ uri, line });
-            }
-        }
-
-        const detectorMode = getCaptureSiteDetectorMode();
-        const kindSummary =
-            allCaptureSites.length > 0 ? ` (${formatKindBreakdown(allCaptureSites)})` : '';
-
-        pbLog(
-            `BreakpointPlanner: ${sites.length} site(s) across ${filePaths.length} file(s) [${detectorMode}]${kindSummary}`
-        );
-        return sites;
     }
 
     public async setBreakpoints(sites: PlannedCaptureSite[]): Promise<void> {
@@ -108,56 +59,6 @@ export class BreakpointPlanner implements vscode.Disposable {
 
     public dispose(): void {
         this.removeAll();
-    }
-
-    private collectFilePaths(entryPoint: string): string[] {
-        const paths = new Set<string>();
-        paths.add(normalizeSourcePath(entryPoint));
-
-        for (const editor of vscode.window.visibleTextEditors) {
-            const doc = editor.document;
-            if (doc.uri.scheme !== 'file') {
-                continue;
-            }
-            if (doc.languageId !== 'python') {
-                continue;
-            }
-            if (!this.isInWorkspace(doc.uri.fsPath)) {
-                continue;
-            }
-            paths.add(normalizeSourcePath(doc.uri.fsPath));
-        }
-
-        return Array.from(paths);
-    }
-
-    private isInWorkspace(fsPath: string): boolean {
-        const folders = vscode.workspace.workspaceFolders;
-        if (!folders || folders.length === 0) {
-            return false;
-        }
-        const normalized = normalizeSourcePath(fsPath);
-        return folders.some((folder) => {
-            const root = normalizeSourcePath(folder.uri.fsPath);
-            return normalized === root || normalized.startsWith(root + path.sep);
-        });
-    }
-
-    private async loadPythonDocument(filePath: string): Promise<vscode.TextDocument | undefined> {
-        const uri = vscode.Uri.file(normalizeSourcePath(filePath));
-        const open = vscode.workspace.textDocuments.find(
-            (doc) => doc.uri.toString() === uri.toString()
-        );
-        if (open) {
-            return open;
-        }
-
-        try {
-            return await vscode.workspace.openTextDocument(uri);
-        } catch (err) {
-            console.warn(`[BreakpointPlanner] could not open ${filePath}: ${err}`);
-            return undefined;
-        }
     }
 
     private hasExistingBreakpoint(uri: vscode.Uri, line: number): boolean {

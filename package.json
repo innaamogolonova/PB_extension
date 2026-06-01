@@ -1,7 +1,7 @@
 {
   "name": "pb_extension",
   "displayName": "PB Extension",
-  "description": "Execute files and track runtime values at each line, filter with LLM",
+  "description": "LLM-powered debugger setup for Python in VS Code",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.108.1"
@@ -16,121 +16,33 @@
   "contributes": {
     "commands": [
       {
-        "command": "pbExtension.executeFile",
-        "title": "Execute File",
+        "command": "pbExtension.setupDebuggerFromDescription",
+        "title": "Set Up Debugger From Description…",
         "category": "PB Extension"
       },
       {
-        "command": "pbExtension.runPb",
-        "title": "Run PB",
-        "category": "PB Extension"
-      },
-      {
-        "command": "pbExtension.runPbExhaustive",
-        "title": "Exhaustive Trace",
-        "category": "PB Extension"
-      },
-      {
-        "command": "pbExtension.toggleLLMFilter",
-        "title": "Toggle LLM Filter",
-        "category": "PB Extension"
-      },
-      {
-        "command": "pbExtension.showFullTrace",
-        "title": "Show Full Trace",
-        "category": "PB Extension"
-      },
-      {
-        "command": "pbExtension.startAttachedTracing",
-        "title": "Start Tracing",
-        "category": "PB Extension"
-      },
-      {
-        "command": "pbExtension.stopAttachedTracing",
-        "title": "Stop Tracing",
-        "category": "PB Extension"
-      },
-      {
-        "command": "pbExtension.toggleAttachedTracing",
-        "title": "Toggle Attach Tracing",
-        "category": "PB Extension"
-      },
-      {
-        "command": "pbExtension.showLineTrace",
-        "title": "Show PB Line Trace",
+        "command": "pbExtension.clearAssistantSetup",
+        "title": "Clear Assistant Debugger Setup",
         "category": "PB Extension"
       }
     ],
     "configuration": {
       "title": "PB Extension",
       "properties": {
-        "pbExtension.enabled": {
-          "type": "boolean",
-          "default": true
-        },
         "pbExtension.openaiApiKey": {
           "type": "string",
           "default": ""
         },
-        "pbExtension.llmFilteringEnabled": {
-          "type": "boolean",
-          "default": true
-        },
-        "pbExtension.autoContinue": {
-          "type": "boolean",
-          "default": true,
-          "description": "After capturing at a PB breakpoint, automatically continue the debug session."
-        },
-        "pbExtension.captureMode": {
-          "type": "string",
-          "enum": [
-            "exhaustive-step",
-            "breakpoint-continue"
-          ],
-          "default": "breakpoint-continue",
-          "description": "How PB collects traces. breakpoint-continue (default): AST/heuristic breakpoints + capture. exhaustive-step: step through every line (use command palette Exhaustive Trace to run without changing this setting)."
-        },
-        "pbExtension.captureSiteDetector": {
-          "type": "string",
-          "enum": [
-            "regex",
-            "ast",
-            "ast-with-regex-fallback"
-          ],
-          "default": "ast-with-regex-fallback",
-          "description": "How PB chooses capture breakpoint lines. ast-with-regex-fallback: Python AST (return, assign, if/elif, raise, loops) with regex fallback on parse errors."
-        },
         "pbExtension.pythonInterpreter": {
           "type": "string",
           "default": "",
-          "description": "Python executable for AST capture-site detection (e.g. python3 or /usr/bin/python3). Empty uses python3."
-        },
-        "pbExtension.maxLoopCaptureSitesPerFile": {
-          "type": "number",
-          "default": 20,
-          "minimum": 0,
-          "description": "Maximum loop-header capture sites per file (first N by line order). 0 disables loop capture sites."
+          "description": "Python executable for launching/debugging (e.g. python3 or /usr/bin/python3). Empty uses python3."
         }
       }
     }
   },
-  "menus": {
-    "editor/context": [
-      {
-        "command": "pbExtension.executeFile",
-        "when": "editorTextFocus"
-      }
-    ]
-  },
-  
-  "keybindings": [
-    {
-      "command": "pbExtension.executeFile",
-      "key": "ctrl+shift+t",
-      "mac": "cmd+shift+t",
-      "when": "editorTextFocus"
-    }
-  ],
+  "menus": {},
+  "keybindings": [],
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
