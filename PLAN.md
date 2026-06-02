@@ -26,12 +26,14 @@ Later extensions:
 - [x] Step 4: prompt LLM properly 
    - provide context 
    - have it output the planned breakpoints and watches (in a log at first)
-- [ ] Stage 5: launch a debugging environment 
-- [ ] Stage 6: apply the LLM inferred breakpoints 
-- [ ] Step 7: tie to commands 
+- [ ] Stage 5: launch debugger 
+   - start the environment successfully 
+   - apply LLM inference successfully 
+- [ ] Step 6: tie to commands 
+- [ ] Step 7: clean up documentation 
 - [ ] Step 8: clean up UI 
    - the webview is ugly 
-- [ ] Step 9: clean up documentation 
+
 
 ## Improvement Notes: 
 - the Webview box is kind of ugly now, work on UI more 
