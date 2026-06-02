@@ -10,7 +10,8 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onView:pbExtension.bugSpecView"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -26,6 +27,24 @@
         "category": "PB Extension"
       }
     ],
+    "viewsContainers": {
+      "secondarySidebar": [
+        {
+          "id": "pbDebugger",
+          "title": "PB Debugger",
+          "icon": "$(debug-alt)"
+        }
+      ]
+    },
+    "views": {
+      "pbDebugger": [
+        {
+          "type": "webview",
+          "id": "pbExtension.bugSpecView",
+          "name": "Bug description"
+        }
+      ]
+    },
     "configuration": {
       "title": "PB Extension",
       "properties": {
