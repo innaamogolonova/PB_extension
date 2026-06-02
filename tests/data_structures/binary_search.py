@@ -17,7 +17,7 @@ def binary_search(arr: List[int], target: int) -> int:
     while left <= right:
         mid = left + (right - left) // 2
         if arr[mid] == target:
-            return mid
+            return mid + 1
         if arr[mid] < target:
             left = mid + 1
         else:

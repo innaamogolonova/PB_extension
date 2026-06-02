@@ -10,6 +10,8 @@ Later extensions:
 - Preview and accept plan before it is applied 
 - Clear assistant 
 - In line snapshot of the variables for glaceable understanding 
+- Back and forth interaction with the LLM to add more points/change them 
+- Configurable settings to the user (allow to specify more points manually, etc)
 
 ## Steps: 
 - [x] Step 1: remove all the old code 
@@ -21,16 +23,19 @@ Later extensions:
    - the file itself 
    - line numbers 
    - AST-derived capture sites (hints for LLM; LLM still chooses breakpoints)
-- [ ] Step 4: prompt LLM properly 
+- [x] Step 4: prompt LLM properly 
    - provide context 
    - have it output the planned breakpoints and watches (in a log at first)
 - [ ] Stage 5: launch a debugging environment 
 - [ ] Stage 6: apply the LLM inferred breakpoints 
 - [ ] Step 7: tie to commands 
-- [ ] Step 8: clean up documentation 
+- [ ] Step 8: clean up UI 
+   - the webview is ugly 
+- [ ] Step 9: clean up documentation 
 
 ## Improvement Notes: 
 - the Webview box is kind of ugly now, work on UI more 
+- the LLM output makes sense, need to dig into it a little bit more and possibly tweak it a bit 
 
 
 ## Audience and Testing: 

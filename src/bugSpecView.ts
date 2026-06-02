@@ -6,6 +6,7 @@ import {
 	logGatheredContextSummary,
 	saveUserDescription,
 } from './gatherContext';
+import { planDebuggerSetup } from './llmDebuggerPlan';
 import { pbLog } from './pbOutput';
 
 export const BUG_SPEC_VIEW_ID = 'pbExtension.bugSpecView';
@@ -47,6 +48,7 @@ export class BugSpecViewProvider implements vscode.WebviewViewProvider {
 				pbLog(`Recorded text (${description.length} chars):\n${description}`);
 			}
 			logGatheredContextSummary(gathered);
+			await planDebuggerSetup(gathered);
 			void vscode.window.showInformationMessage('PB: bug description saved.');
 		});
 

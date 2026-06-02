@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { openBugSpecView, registerBugSpecView } from './bugSpecView';
 import { gatherContext, logGatheredContextSummary } from './gatherContext';
+import { planDebuggerSetup } from './llmDebuggerPlan';
 import { pbLog } from './pbOutput';
 
 export function activate(context: vscode.ExtensionContext) {
@@ -15,6 +16,7 @@ export function activate(context: vscode.ExtensionContext) {
 			await bugSpecView.reveal();
 			const gathered = await gatherContext(context);
 			logGatheredContextSummary(gathered);
+			await planDebuggerSetup(gathered);
 		}),
 		vscode.commands.registerCommand('pbExtension.clearAssistantSetup', async () => {
 			await bugSpecView.clear();

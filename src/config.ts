@@ -8,6 +8,7 @@ export type CaptureSiteDetectorMode = 'regex' | 'ast' | 'ast-with-regex-fallback
 
 const CAPTURE_SITE_DETECTOR_KEY = 'captureSiteDetector';
 const DEFAULT_CAPTURE_SITE_DETECTOR: CaptureSiteDetectorMode = 'ast-with-regex-fallback';
+const OPENAI_API_KEY = 'openaiApiKey';
 const PYTHON_INTERPRETER_KEY = 'pythonInterpreter';
 const MAX_LOOP_CAPTURE_SITES_KEY = 'maxLoopCaptureSitesPerFile';
 const DEFAULT_MAX_LOOP_CAPTURE_SITES = 20;
@@ -37,6 +38,11 @@ export function getCaptureSiteDetectorMode(): CaptureSiteDetectorMode {
         return mode;
     }
     return DEFAULT_CAPTURE_SITE_DETECTOR;
+}
+
+export function getOpenAiApiKey(): string {
+	const config = vscode.workspace.getConfiguration('pbExtension');
+	return config.get<string>(OPENAI_API_KEY, '').trim();
 }
 
 export function getPythonInterpreter(): string {

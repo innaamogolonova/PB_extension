@@ -42,3 +42,25 @@ export interface GatheredContext {
 	captureSites: CaptureSite[];
 	warnings: string[];
 }
+
+// --- LLM debugger plan (Step 4+; consumed by launch + breakpoint apply) ---
+
+export type PlannedBreakpointKind = 'line' | 'conditional' | 'logpoint';
+
+export interface PlannedBreakpoint {
+	/** 1-based line number */
+	line: number;
+	kind: PlannedBreakpointKind;
+	condition?: string;
+	logMessage?: string;
+	rationale?: string;
+}
+
+/** Structured plan for debugpy launch and breakpoint application (Steps 5–6). */
+export interface DebuggerSetupPlan {
+	filePath: string;
+	workspaceRelativePath?: string;
+	breakpoints: PlannedBreakpoint[];
+	watchExpressions: string[];
+	summary?: string;
+}
