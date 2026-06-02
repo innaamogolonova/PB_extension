@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { openBugSpecView, registerBugSpecView } from './bugSpecView';
+import { gatherContext, logGatheredContextSummary } from './gatherContext';
 import { pbLog } from './pbOutput';
 
 export function activate(context: vscode.ExtensionContext) {
@@ -12,6 +13,8 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pbExtension.setupDebuggerFromDescription', async () => {
 			await bugSpecView.reveal();
+			const gathered = await gatherContext(context);
+			logGatheredContextSummary(gathered);
 		}),
 		vscode.commands.registerCommand('pbExtension.clearAssistantSetup', async () => {
 			await bugSpecView.clear();

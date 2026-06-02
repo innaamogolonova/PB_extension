@@ -1,59 +1,44 @@
-export interface VariableInfo {
-  name: string;
-  value: string;
-  type: string;
-}
-export interface LineValueState {
-  lineNumber: number;
-  variables: VariableInfo[];
-  timestamp: number;
-}
-export interface ExecutionTrace {
-  filePath: string;
-  language: string;
-  lineStates: Map<number, LineValueState[]>;
-  executionStart: Date;
-  executionEnd?: Date;
-  success: boolean;
-  error?: string;
-}
-
-export interface CapturedFrameState extends LineValueState {
-  frameFilePath: string;
-  frameId: number;
-  threadId: number;
-  functionName?: string;
-}
-
-export interface FileTrace {
-  filePath: string;
-  language: string;
-  lineStates: Map<number, CapturedFrameState[]>;
-  sourceHash?: string;
-  capturedAt: number;
-  isStale: boolean;
-}
-
-export interface TraceSession {
-  sessionId: string;
-  entryPoint: string;
-  language: string;
-  files: Map<string, FileTrace>;
-  executionStart: Date;
-  executionEnd?: Date;
-  success: boolean;
-  error?: string;
-}
-
-/** How PB collects runtime snapshots from the debugger. */
+/** How PB collects runtime snapshots from the debugger (later phases). */
 export type PbCaptureMode = 'exhaustive-step' | 'breakpoint-continue';
 
-/** Who started the VS Code debug session PB is tied to. */
-export type PbSessionRole = 'owned' | 'observed';
+// --- LLM context (Step 3+) ---
 
-/** Per–debug-session policy (Phase 0 vocabulary; wired in later phases). */
-export interface PbSessionPolicy {
-  role: PbSessionRole;
-  captureMode: PbCaptureMode;
-  debugSessionId: string;
+export interface UserBugSpec {
+	description: string;
+}
+
+export interface SourceSelection {
+	/** 1-based inclusive */
+	startLine: number;
+	/** 1-based inclusive */
+	endLine: number;
+}
+
+export interface NumberedLine {
+	/** 1-based */
+	lineNumber: number;
+	text: string;
+}
+
+export interface SourceContext {
+	filePath: string;
+	workspaceRelativePath?: string;
+	languageId: string;
+	content: string;
+	lineCount: number;
+	numberedLines: NumberedLine[];
+	selection?: SourceSelection;
+	isDirty?: boolean;
+}
+
+export interface CaptureSite {
+	line: number;
+	kind: string;
+}
+
+export interface GatheredContext {
+	user: UserBugSpec;
+	source: SourceContext | null;
+	captureSites: CaptureSite[];
+	warnings: string[];
 }

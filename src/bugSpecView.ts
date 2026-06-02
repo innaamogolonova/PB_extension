@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
 import {
 	clearUserDescription,
-	getSavedUserDescription,
 	gatherContext,
+	getSavedUserDescription,
+	logGatheredContextSummary,
 	saveUserDescription,
 } from './gatherContext';
 import { pbLog } from './pbOutput';
@@ -38,13 +39,14 @@ export class BugSpecViewProvider implements vscode.WebviewViewProvider {
 
 			await saveUserDescription(this.extensionContext, message.description);
 			const gathered = await gatherContext(this.extensionContext);
-			const { userDescription } = gathered;
+			const { description } = gathered.user;
 			pbLog('User bug description recorded from input box.');
-			if (userDescription.length === 0) {
+			if (description.length === 0) {
 				pbLog('Recorded text: (empty)');
 			} else {
-				pbLog(`Recorded text (${userDescription.length} chars):\n${userDescription}`);
+				pbLog(`Recorded text (${description.length} chars):\n${description}`);
 			}
+			logGatheredContextSummary(gathered);
 			void vscode.window.showInformationMessage('PB: bug description saved.');
 		});
 

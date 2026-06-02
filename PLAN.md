@@ -16,10 +16,11 @@ Later extensions:
 - [x] Step 2: create InputBox for NL spec 
    - create a prompt box in the extension window
    - save the input from the prompt box 
-- [ ] Step 3: gather context for LLM to use 
+- [x] Step 3: gather context for LLM to use 
    - InputBox with NL spec 
    - the file itself 
-   - maybe: AST of the file? not sure what that would optimize
+   - line numbers 
+   - AST-derived capture sites (hints for LLM; LLM still chooses breakpoints)
 - [ ] Step 4: prompt LLM properly 
    - provide context 
    - have it output the planned breakpoints and watches (in a log at first)
