@@ -1,10 +1,23 @@
-# PB(ish) Extension
+# LLM Powered Debugger
 
 Extension implementation of projection boxes, kind of. Calling on an LLM to display relevant variable and function information.
 
-## Purpose 
+## Purpose of tool: 
+- aid developer understanding of code by proxy of debugging 
+- allow developer to set up debugging enviornment correctly
+- addresses issues of novice developers having trouble using the debugger and translating their hypothesis of a bug into debugger settings 
 
-Help programmers understand code by showing runtime values at meaningful places, with LLM-chosen relevance, in the editor — inspired by projection boxes / live programming.
+## Vision: 
+- developer gives natural language specification of where or what the logic bug is in the code 
+- the tool, using an LLM, can "drop" developer into a point of interest
+   - the tool achieves the above by setting up breakpoints, setting up conditional breakpoints, specifying watch expressions and other basic debugger set up 
+- the tool attaches to an existing IDE debugger, does not host its own 
+- the debugger is still able to be manipulated and adjusted by the developer and maintains more advanced debugger features 
+   - the developer should be able to add additional breakpoints/expressions at their convenience
+- possibly: the developer is able to prompt additional queries to the LLM to tweak debugger functionality 
+- possibly: the LLM displays relevant/interesting intermediate values at other breakpoints in-line in the margins so the developer can get a glanceable view and understanding of the interesting state 
+- POC: keep python only for now, maybe with a possibility of making this language agnostic later 
+
 
 ## Requirements
 
@@ -30,38 +43,3 @@ Help programmers understand code by showing runtime values at meaningful places,
 4. `npm run compile` from root
 5. F5 to launch extension (main window — launches **Extension Development Host**)
 
-### Attach tracing (Phases 1–3)
-
-Work in the **Extension Development Host** window (not the main repo window).
-
-1. Install **Python** and **Python Debugger** extensions in that window if prompted.
-2. Open `tests/web_app/services.py` (has heuristic `return` / call lines).
-3. Command Palette → **PB Extension: Run PB**.
-4. View logs: **Output** panel → **PB Extension**.
-
-### Reading trace UI (after a run)
-
-| UI | What it shows |
-|----|----------------|
-| **Ghost text** `⟨PB⟩ name=value…` at end of line | LLM-filtered snapshot (falls back to raw vars if LLM returns nothing) |
-| **CodeLens** above captured lines | `PB: … — click for full trace` → table + quick pick |
-| **Hover** (when not debugging) | Markdown table of all captured variables |
-| **While paused on a breakpoint** | Debugger hover shows Python internals — use **CodeLens** for PB trace instead |
-
-Enable **CodeLens** in the editor if you do not see links above lines: Command Palette → "Preferences: Open Settings" → search `code lens` → ensure Code Lens is on.
-
-## Expected Behavior (old) 
-
-Pre-req: make sure that the test file is executable and correct
-
-1. In the popped up extension window open the test directory and one of the test Python files.
-2. Open the command palette and run "Test Debug Executor" command
-
-Expected:
-
-- The file will execute with the debugger running
-- You will see per line traces as the debugger steps through the file
-- Result of executable file should show up on the terminal
-- After execution, there will be a slight delay of values displays
-- LLM filtered output will be an in-line ghost text decoration (git blame style)
-- Hovering over the line will show the full trace using codelens
