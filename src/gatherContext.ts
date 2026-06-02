@@ -16,6 +16,7 @@ import {
 
 const execFileAsync = promisify(execFile);
 const STORAGE_KEY = 'pbExtension.userBugDescription';
+const WATCHES_STORAGE_KEY = 'pbExtension.suggestedWatchExpressions';
 
 export function getSavedUserDescription(context: vscode.ExtensionContext): string {
 	return context.globalState.get<string>(STORAGE_KEY, '');
@@ -30,6 +31,27 @@ export async function saveUserDescription(
 
 export async function clearUserDescription(context: vscode.ExtensionContext): Promise<void> {
 	await context.globalState.update(STORAGE_KEY, '');
+}
+
+export function getSuggestedWatchExpressions(context: vscode.ExtensionContext): string[] {
+	const stored = context.globalState.get<string[]>(WATCHES_STORAGE_KEY, []);
+	return Array.isArray(stored) ? stored.filter((w) => typeof w === 'string') : [];
+}
+
+export async function saveSuggestedWatchExpressions(
+	context: vscode.ExtensionContext,
+	watchExpressions: string[]
+): Promise<void> {
+	const cleaned = watchExpressions
+		.map((w) => w.trim())
+		.filter((w) => w.length > 0);
+	await context.globalState.update(WATCHES_STORAGE_KEY, cleaned);
+}
+
+export async function clearSuggestedWatchExpressions(
+	context: vscode.ExtensionContext
+): Promise<void> {
+	await context.globalState.update(WATCHES_STORAGE_KEY, []);
 }
 
 // builds the context object for LLM 

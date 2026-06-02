@@ -1,11 +1,16 @@
 import * as vscode from 'vscode';
 import {
+	clearSuggestedWatchExpressions,
 	clearUserDescription,
 	gatherContext,
 	getSavedUserDescription,
+	getSuggestedWatchExpressions,
 	logGatheredContextSummary,
+	saveSuggestedWatchExpressions,
 	saveUserDescription,
 } from './gatherContext';
+import { DebuggerSetupPlan } from './types';
+import { executeDebuggerSetup } from './launch';
 import { planDebuggerSetup } from './llmDebuggerPlan';
 import { pbLog } from './pbOutput';
 
@@ -13,7 +18,11 @@ export const BUG_SPEC_VIEW_ID = 'pbExtension.bugSpecView';
 const PB_DEBUGGER_CONTAINER_ID = 'pbDebugger';
 
 type WebviewToExtensionMessage = { type: 'submit'; description: string };
-type ExtensionToWebviewMessage = { type: 'init'; description: string };
+type ExtensionToWebviewMessage = {
+	type: 'init';
+	description: string;
+	watchExpressions: string[];
+};
 
 export class BugSpecViewProvider implements vscode.WebviewViewProvider {
 	private view?: vscode.WebviewView;
@@ -48,32 +57,47 @@ export class BugSpecViewProvider implements vscode.WebviewViewProvider {
 				pbLog(`Recorded text (${description.length} chars):\n${description}`);
 			}
 			logGatheredContextSummary(gathered);
-			await planDebuggerSetup(gathered);
+			const plan = await planDebuggerSetup(gathered);
+			if (plan) {
+				await this.applyPlanToView(plan);
+				await executeDebuggerSetup(plan);
+			}
 			void vscode.window.showInformationMessage('PB: bug description saved.');
 		});
 
 		webviewView.onDidChangeVisibility(() => {
 			if (webviewView.visible) {
-				this.postInit();
+				this.refreshView();
 			}
 		});
 
-		this.postInit();
+		this.refreshView();
 	}
 
 	public async reveal(): Promise<void> {
 		await openBugSpecView();
 	}
 
-	public postInit(): void {
+	public refreshView(): void {
 		const description = getSavedUserDescription(this.extensionContext);
-		const message: ExtensionToWebviewMessage = { type: 'init', description };
+		const watchExpressions = getSuggestedWatchExpressions(this.extensionContext);
+		const message: ExtensionToWebviewMessage = {
+			type: 'init',
+			description,
+			watchExpressions,
+		};
 		void this.view?.webview.postMessage(message);
+	}
+
+	public async applyPlanToView(plan: DebuggerSetupPlan): Promise<void> {
+		await saveSuggestedWatchExpressions(this.extensionContext, plan.watchExpressions);
+		this.refreshView();
 	}
 
 	public async clear(): Promise<void> {
 		await clearUserDescription(this.extensionContext);
-		this.postInit();
+		await clearSuggestedWatchExpressions(this.extensionContext);
+		this.refreshView();
 	}
 }
 
@@ -159,6 +183,35 @@ function getWebviewHtml(): string {
 			font-size: 0.85em;
 			opacity: 0.8;
 		}
+		.watches-section {
+			margin-top: 16px;
+			padding-top: 12px;
+			border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.35));
+		}
+		.watches-section h2 {
+			margin: 0 0 8px;
+			font-size: inherit;
+			font-weight: 600;
+		}
+		#watch-list {
+			margin: 0;
+			padding: 0;
+			list-style: none;
+		}
+		#watch-list li {
+			padding: 4px 8px;
+			margin-bottom: 4px;
+			font-family: var(--vscode-editor-font-family);
+			font-size: 0.9em;
+			background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.15));
+			border-radius: 3px;
+			word-break: break-word;
+		}
+		.watches-empty {
+			font-size: 0.85em;
+			opacity: 0.75;
+			font-style: italic;
+		}
 	</style>
 </head>
 <body>
@@ -166,10 +219,35 @@ function getWebviewHtml(): string {
 	<textarea id="description" placeholder="Describe what you think is wrong…"></textarea>
 	<button id="submit" type="button">Save</button>
 	<p class="hint">Saved text is used when gathering context for the LLM.</p>
+	<section class="watches-section" aria-labelledby="watches-heading">
+		<h2 id="watches-heading">Suggested watch expressions</h2>
+		<ul id="watch-list"></ul>
+		<p id="watches-empty" class="watches-empty">Save a hypothesis to generate watch suggestions.</p>
+	</section>
 	<script>
 		const vscode = acquireVsCodeApi();
 		const textarea = document.getElementById('description');
 		const submitBtn = document.getElementById('submit');
+		const watchList = document.getElementById('watch-list');
+		const watchesEmpty = document.getElementById('watches-empty');
+
+		function renderWatchExpressions(watchExpressions) {
+			watchList.textContent = '';
+			if (!Array.isArray(watchExpressions) || watchExpressions.length === 0) {
+				watchesEmpty.style.display = 'block';
+				watchesEmpty.textContent =
+					textarea.value.trim().length === 0
+						? 'Save a hypothesis to generate watch suggestions.'
+						: 'No watch expressions in the latest plan.';
+				return;
+			}
+			watchesEmpty.style.display = 'none';
+			for (const expr of watchExpressions) {
+				const li = document.createElement('li');
+				li.textContent = expr;
+				watchList.appendChild(li);
+			}
+		}
 
 		submitBtn.addEventListener('click', () => {
 			vscode.postMessage({ type: 'submit', description: textarea.value });
@@ -177,8 +255,11 @@ function getWebviewHtml(): string {
 
 		window.addEventListener('message', (event) => {
 			const msg = event.data;
-			if (msg && msg.type === 'init' && typeof msg.description === 'string') {
-				textarea.value = msg.description;
+			if (msg && msg.type === 'init') {
+				if (typeof msg.description === 'string') {
+					textarea.value = msg.description;
+				}
+				renderWatchExpressions(msg.watchExpressions);
 			}
 		});
 	</script>

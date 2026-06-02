@@ -26,7 +26,7 @@ Later extensions:
 - [x] Step 4: prompt LLM properly 
    - provide context 
    - have it output the planned breakpoints and watches (in a log at first)
-- [ ] Stage 5: launch debugger 
+- [x] Stage 5: launch debugger 
    - start the environment successfully 
    - apply LLM inference successfully 
 - [ ] Step 6: tie to commands 
@@ -38,7 +38,8 @@ Later extensions:
 ## Improvement Notes: 
 - the Webview box is kind of ugly now, work on UI more 
 - the LLM output makes sense, need to dig into it a little bit more and possibly tweak it a bit 
-
+- no watch expression possible in the watch panel; now just under the input box webview, maybe come up with a better way 
+- pretty slow, need to optimize speed 
 
 ## Audience and Testing: 
 Audience: novice to intermediate developers who can see the bug but are having a hard time translating it to the location in the code.
