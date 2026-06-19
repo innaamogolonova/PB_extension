@@ -4,6 +4,7 @@ import { applyBreakpointsFromPlan } from './breakpoints';
 import { getPythonDebugAdapterType } from './config';
 import { pbLog } from './pbOutput';
 import { DebuggerSetupPlan } from './types';
+import { applyWatchExpressionsFromPlan } from './watchExpressions';
 
 export function getWorkspaceFolderForFile(
 	filePath: string
@@ -77,16 +78,6 @@ export async function startPythonDebugSession(
 	return true;
 }
 
-function logWatchExpressions(plan: DebuggerSetupPlan): void {
-	if (plan.watchExpressions.length === 0) {
-		return;
-	}
-	pbLog('Suggested watch expressions (add manually in the Watch panel):');
-	for (const watch of plan.watchExpressions) {
-		pbLog(`  ${watch}`);
-	}
-}
-
 export async function executeDebuggerSetup(plan: DebuggerSetupPlan): Promise<boolean> {
 	pbLog('executeDebuggerSetup: applying plan and launching debugger…');
 
@@ -133,10 +124,10 @@ export async function executeDebuggerSetup(plan: DebuggerSetupPlan): Promise<boo
 		return false;
 	}
 
-	logWatchExpressions(plan);
+	const addedWatches = await applyWatchExpressionsFromPlan(plan);
 
 	void vscode.window.showInformationMessage(
-		`PB: debugging started with ${applied} breakpoint(s).`
+		`PB: debugging started with ${applied} breakpoint(s), ${addedWatches} watch expression(s).`
 	);
 	return true;
 }
